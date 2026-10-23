@@ -1,0 +1,47 @@
+{
+  "id": 1,
+  "planet": "Moon",
+  "startPoints": 30,
+  "lives": 3,
+  "levelSize": { "w": 2400, "h": 720 },
+  "spawn": { "x": 100, "y": 580 },
+  "gravity": 1600.0,
+
+  "platforms": [
+    { "x": 0,    "y": 680, "w": 600,  "h": 40 },
+    { "x": 1000, "y": 680, "w": 1400, "h": 40 },
+    { "x": 1000, "y": 520, "w": 400,  "h": 32 },
+    { "x": 1600, "y": 580, "w": 800,  "h": 32 },
+    { "x": 300,  "y": 400, "w": 200,  "h": 32 }
+  ],
+
+  "entities": [
+    { "id": "spike_a1",     "type": "spike",      "world": "A", "x": 1100, "y": 488, "w": 64,  "h": 32, "twinId": "edit_spike_b1" },
+    { "id": "pit_a1",       "type": "pit",        "world": "A", "x": 600,  "y": 700, "w": 400, "h": 60 },
+
+    { "id": "cell_a1",      "type": "energyCell",  "world": "A", "x": 350,  "y": 360 },
+    { "id": "cell_a2",      "type": "energyCell",  "world": "A", "x": 1800, "y": 540 },
+
+    { "id": "part_a1",      "type": "shipPart",    "world": "A", "x": 2000, "y": 540 },
+
+    { "id": "exit_a1",      "type": "exit",        "world": "A", "x": 2250, "y": 520, "w": 64, "h": 60 },
+
+    { "id": "edit_spike_b1","type": "editBlock",   "world": "B", "x": 1100, "y": 488, "w": 64, "h": 32, "skill": "delete", "twinId": "spike_a1" },
+    { "id": "edit_bridge_b1","type": "editBlock",  "world": "B", "x": 600,  "y": 648, "w": 400,"h": 32, "skill": "duplicate", "twinId": "bridge_a1" },
+    { "id": "bridge_a1",    "type": "wall",        "world": "A", "x": 600,  "y": 648, "w": 400,"h": 32, "twinId": "edit_bridge_b1" },
+
+    { "id": "crate_b1",     "type": "crate",       "world": "B", "x": 350,  "y": 360 },
+    { "id": "plate_b1",     "type": "plate",       "world": "B", "x": 500,  "y": 368, "w": 48, "h": 12 }
+  ],
+
+  "portals": [
+    { "x": 280, "y": 300, "w": 80, "h": 100 }
+  ],
+
+  "parts": 1,
+
+  "objective": {
+    "type": "push_block",
+    "timeLimit": 30
+  }
+}
