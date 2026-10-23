@@ -23,7 +23,7 @@ const REQUIRED_OBJ_KEYS := ["id", "type", "pos", "world", "twinId"]
 const REQUIRED_PUZZLE_KEYS := ["type", "moveLimit"]
 
 # --- Contract: required portal keys ---
-const REQUIRED_PORTAL_KEYS := ["world", "pos"]
+const REQUIRED_PORTAL_KEYS := ["world", "x", "y"]
 
 
 func _run() -> void:
@@ -105,14 +105,14 @@ func _validate_level(path: String, display_name: String) -> Dictionary:
 		return {"errors": errors, "warnings": warnings}
 
 	# ---- Validate gridSize ----
-	var grid_size: Array = data["gridSize"]
-	if grid_size.size() != 2:
-		printerr("  ERROR: gridSize must be [width, height], got %s" % str(grid_size))
+	var grid_size = data["gridSize"]
+	if not (grid_size is Dictionary) or not grid_size.has("width") or not grid_size.has("height"):
+		printerr("  ERROR: gridSize must be {\"width\": int, \"height\": int}, got %s" % str(grid_size))
 		errors += 1
 		return {"errors": errors, "warnings": warnings}
 
-	var width: int = int(grid_size[0])
-	var height: int = int(grid_size[1])
+	var width: int = int(grid_size["width"])
+	var height: int = int(grid_size["height"])
 	print("  Grid size: %d × %d" % [width, height])
 
 	# ---- Validate worldA grid ----
@@ -169,15 +169,15 @@ func _validate_level(path: String, display_name: String) -> Dictionary:
 
 		# Check position is within grid bounds
 		if obj.has("pos"):
-			var pos: Array = obj["pos"]
-			if pos.size() != 2:
-				printerr("  ERROR: %s (id='%s') pos must be [x, y], got %s" % [obj_label, obj_id, str(pos)])
+			var pos = obj["pos"]
+			if not (pos is Dictionary) or not pos.has("x") or not pos.has("y"):
+				printerr("  ERROR: %s (id='%s') pos must be {\"x\": int, \"y\": int}, got %s" % [obj_label, obj_id, str(pos)])
 				errors += 1
 			else:
-				var px: int = int(pos[0])
-				var py: int = int(pos[1])
+				var px: int = int(pos["x"])
+				var py: int = int(pos["y"])
 				if px < 0 or px >= width or py < 0 or py >= height:
-					printerr("  ERROR: %s (id='%s') pos [%d, %d] out of grid bounds [%d × %d]" % [obj_label, obj_id, px, py, width, height])
+					printerr("  ERROR: %s (id='%s') pos {x:%d, y:%d} out of grid bounds [%d × %d]" % [obj_label, obj_id, px, py, width, height])
 					errors += 1
 
 	# ---- Validate twin IDs exist ----
@@ -228,20 +228,18 @@ func _validate_level(path: String, display_name: String) -> Dictionary:
 				has_portal_b = true
 
 		# Check that portal position has O tile in the matching grid
-		if portal.has("world") and portal.has("pos"):
+		if portal.has("world") and portal.has("x") and portal.has("y"):
 			var pw: String = str(portal["world"])
-			var ppos: Array = portal["pos"]
-			if ppos.size() == 2:
-				var px: int = int(ppos[0])
-				var py: int = int(ppos[1])
-				var grid: Array = world_a if pw == "A" else world_b
-				if py >= 0 and py < grid.size():
-					var row_str: String = grid[py]
-					if px >= 0 and px < row_str.length():
-						var tile := row_str[px]
-						if tile != "O":
-							printerr("  ERROR: Portal (world=%s) at [%d, %d] expects 'O' tile but found '%s'" % [pw, px, py, tile])
-							errors += 1
+			var px: int = int(portal["x"])
+			var py: int = int(portal["y"])
+			var grid: Array = world_a if pw == "A" else world_b
+			if py >= 0 and py < grid.size():
+				var row_str: String = grid[py]
+				if px >= 0 and px < row_str.length():
+					var tile := row_str[px]
+					if tile != "O":
+						printerr("  ERROR: Portal (world=%s) at [%d, %d] expects 'O' tile but found '%s'" % [pw, px, py, tile])
+						errors += 1
 
 	if not has_portal_a:
 		printerr("  ERROR: No portal defined for world A")

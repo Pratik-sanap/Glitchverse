@@ -26,8 +26,9 @@ Each object in the `objects` array includes `"world": "A"` or `"world": "B"` to 
 
 ## Position & Grid Format
 
-- `pos`: `[x, y]` — 0-indexed, x = column, y = row (from top-left)
-- `gridSize`: `[width, height]`
+- `pos`: `{"x": col, "y": row}` — 0-indexed from top-left
+- `gridSize`: `{"width": w, "height": h}`
+- `portals`: `{"world": "A", "x": col, "y": row}` — flat keys, no nested pos
 
 ---
 
