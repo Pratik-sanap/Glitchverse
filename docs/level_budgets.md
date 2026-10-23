@@ -9,21 +9,20 @@ All values match `src/logic/config.gd`. Update this doc whenever a level changes
 ### Side-View Sketch
 
 ```
-X=0            X=600      X=1000                    X=2400
-┌──────────────┐          ┌─────────────────────────────┐
-│              │          │                             │
-│  SPAWN       │   PIT    │  [spike]                    │
-│  ●           │  (gap)   │  ▲▲▲▲                      │
-│  ■■■■■■■■■■ │←  400 →│ ■■■ledge■■                   │
-│              │          │        ■■■■■■■■■■■■■■■■■■■■│
-│              │          │  [cell]  [part]  [EXIT]     │
-│  [portal↕]   │          │  ■■■long platform■■■■■■■■■■│
-│▓▓▓FLOOR▓▓▓▓▓│          │▓▓▓▓▓FLOOR▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│
-└──────────────┘          └─────────────────────────────┘
-Y=680 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+X=0            X=600      X=1000       X=1600               X=2400
+┌──────────────┐          ┌────────────┬────────────────────────┐
+│ SPAWN        │   PIT    │            │                        │
+│ ●            │  (gap)   │ [spike]    │                        │
+│ [portal↕]    │          │ ▲▲▲▲▲▲▲▲▲  │ [cell]  [part]  [EXIT] │
+│ [crate]      │          │ (360 wide) │                        │
+│ [plate] [cell│          │            │ ▓▓▓ raised shelf ▓▓▓▓▓ │
+│▓▓▓FLOOR▓▓▓▓▓▓│←  400 →  │▓▓▓FLOOR▓▓▓▓│▓▓▓▓▓▓ (h:140) ▓▓▓▓▓▓▓▓▓│
+└──────────────┴──────────┴────────────┴────────────────────────┘
+Y=680 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
-World B: editBlock-bridge over pit (duplicate), editBlock-spike (delete),
-         crate + plate for push_block objective on the upper platform.
+World B: editBlock-bridge over pit (duplicate, twin: pit_a1),
+         editBlock-spike on ground (delete, twin: spike_a1),
+         crate + plate for push_block objective on ground before portal.
 ```
 
 ### Points Budget
