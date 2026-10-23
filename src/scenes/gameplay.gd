@@ -31,6 +31,11 @@ func _ready() -> void:
 	_build_scene_hierarchy()
 	_populate_level_geometry()
 	
+	# Attach HUD overlay
+	var hud_scene: PackedScene = load("res://src/ui/hud.tscn")
+	if hud_scene:
+		add_child(hud_scene.instantiate())
+	
 	# Connect to logic signals
 	if not Game.state_changed.is_connected(_on_state_changed):
 		Game.state_changed.connect(_on_state_changed)
