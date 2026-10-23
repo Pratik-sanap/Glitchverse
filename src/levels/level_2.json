@@ -9,39 +9,38 @@
 
   "platforms": [
     { "x": 0,    "y": 680, "w": 500,  "h": 40 },
-    { "x": 700,  "y": 680, "w": 400,  "h": 40 },
-    { "x": 700,  "y": 540, "w": 200,  "h": 32 },
-    { "x": 1300, "y": 680, "w": 500,  "h": 40 },
-    { "x": 2000, "y": 680, "w": 800,  "h": 40 },
-    { "x": 2000, "y": 560, "w": 800,  "h": 32 },
-    { "x": 200,  "y": 420, "w": 180,  "h": 32 }
+    { "x": 800,  "y": 680, "w": 500,  "h": 40 },
+    { "x": 700,  "y": 580, "w": 200,  "h": 32 },
+    { "x": 1400, "y": 680, "w": 500,  "h": 40 },
+    { "x": 2000, "y": 560, "w": 800,  "h": 160 },
+    { "x": 1900, "y": 620, "w": 120,  "h": 32 }
   ],
 
   "entities": [
-    { "id": "pit_a1",        "type": "pit",        "world": "A", "x": 500,  "y": 700, "w": 200, "h": 60 },
-    { "id": "pit_a2",        "type": "pit",        "world": "A", "x": 1100, "y": 700, "w": 200, "h": 60 },
-    { "id": "pit_a3",        "type": "pit",        "world": "A", "x": 1800, "y": 700, "w": 200, "h": 60 },
+    { "id": "pit_a1",        "type": "pit",        "world": "A", "x": 500,  "y": 680, "w": 300, "h": 40, "twinId": "edit_bridge_b1" },
+    { "id": "pit_a2",        "type": "pit",        "world": "A", "x": 1300, "y": 680, "w": 100, "h": 40 },
+    { "id": "pit_a3",        "type": "pit",        "world": "A", "x": 1840, "y": 680, "w": 100, "h": 40 },
 
-    { "id": "wall_a1",       "type": "wall",       "world": "A", "x": 1500, "y": 480, "w": 64,  "h": 200, "twinId": "edit_wall_b1" },
+    { "id": "wall_a1",       "type": "wall",       "world": "A", "x": 1700, "y": 480, "w": 64,  "h": 200, "twinId": "edit_wall_b1" },
 
-    { "id": "cell_a1",       "type": "energyCell", "world": "A", "x": 300,  "y": 380 },
-    { "id": "cell_a2",       "type": "energyCell", "world": "A", "x": 800,  "y": 500 },
-    { "id": "cell_a3",       "type": "energyCell", "world": "A", "x": 1400, "y": 640 },
+    { "id": "cell_a1",       "type": "energyCell", "world": "A", "x": 430,  "y": 636 },
+    { "id": "cell_a2",       "type": "energyCell", "world": "A", "x": 800,  "y": 540 },
+    { "id": "cell_a3",       "type": "energyCell", "world": "A", "x": 1700, "y": 640 },
 
     { "id": "part_a1",       "type": "shipPart",   "world": "A", "x": 2400, "y": 520 },
 
-    { "id": "exit_a1",       "type": "exit",       "world": "A", "x": 2650, "y": 500, "w": 64, "h": 60 },
+    { "id": "exit_a1",       "type": "exit",       "world": "A", "x": 2650, "y": 500, "w": 64,  "h": 60 },
 
-    { "id": "edit_wall_b1",  "type": "editBlock",  "world": "B", "x": 1500, "y": 480, "w": 64,  "h": 200, "skill": "delete",    "twinId": "wall_a1" },
-    { "id": "edit_bridge_b1","type": "editBlock",  "world": "B", "x": 500,  "y": 648, "w": 200, "h": 32,  "skill": "duplicate", "twinId": "bridge_a1" },
-    { "id": "bridge_a1",     "type": "wall",       "world": "A", "x": 500,  "y": 648, "w": 200, "h": 32,  "twinId": "edit_bridge_b1" },
+    { "id": "edit_bridge_b1","type": "editBlock",  "world": "B", "x": 500,  "y": 680, "w": 300, "h": 40, "skill": "duplicate", "twinId": "pit_a1" },
+    { "id": "edit_wall_b1",  "type": "editBlock",  "world": "B", "x": 1700, "y": 480, "w": 64,  "h": 200, "skill": "delete",   "twinId": "wall_a1" },
 
-    { "id": "crate_b1",      "type": "crate",      "world": "B", "x": 250,  "y": 380 },
-    { "id": "plate_b1",      "type": "plate",      "world": "B", "x": 350,  "y": 388, "w": 48,  "h": 12 }
+    { "id": "crate_b1",      "type": "crate",      "world": "B", "x": 250,  "y": 624, "w": 56,  "h": 56 },
+    { "id": "plate_b1",      "type": "plate",      "world": "B", "x": 360,  "y": 664, "w": 64,  "h": 16 }
   ],
 
   "portals": [
-    { "x": 180, "y": 320, "w": 80, "h": 100 }
+    { "x": 150,  "y": 590, "w": 48, "h": 90 },
+    { "x": 1430, "y": 590, "w": 48, "h": 90 }
   ],
 
   "parts": 1,

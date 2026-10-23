@@ -65,72 +65,84 @@ World B: crate + plate objective, editBlock-bridge over pit (duplicate), editBlo
 ### Side-View Sketch
 
 ```
-X=0          X=500  X=700    X=1100  X=1300       X=1800  X=2000     X=2800
-┌────────────┐      ┌────────┐      ┌─────────────┐      ┌──────────────┐
-│            │      │        │      │             │      │              │
-│  SPAWN ●   │ PIT  │ ledge  │ PIT  │ [wall]▓▓▓▓ │      │              │
-│            │(wide)│[cell]  │(jump)│ ▓▓▓▓▓▓▓▓▓▓ │      │ [part] [EXIT]│
-│ [portal↕]  │ 200  │        │ 200  │ [cell]      │ gap  │              │
-│■■■■■■■■■■■│      │■■■■■■■■│      │■■■■■■■■■■■■│      │■■■■■■■■■■■■■│
-│▓▓▓FLOOR▓▓▓│      │▓FLOOR▓▓│      │▓▓▓FLOOR▓▓▓▓│      │▓▓▓FLOOR▓▓▓▓▓│
-└────────────┘      └────────┘      └─────────────┘      └──────────────┘
+X=0          X=500  X=800    X=1300  X=1400  X=1700     X=1900 X=2000       X=2800
+┌────────────┐      ┌────────┐      ┌───────┐▓▓wall▓▓   step ┌────────────────────┐
+│            │      │        │      │       │▓ h200 ▓   ▓▓▓  │                   │
+│  SPAWN ●   │WIDE  │ledge   │ gap  │[p2↕]  │               │  [part]   [EXIT]  │
+│  [portal1] │ PIT  │[cell2] │(100) │[cell3]│               │                   │
+│  [crate]   │(300) │■y580■■■│      │■■■■■■■│               │▓▓SOLID BLOCK▓▓▓▓▓▓│
+│  [plate]   │      │        │      │       │               │ x=2000,y=560,h=160│
+│  [cell1]   │      │        │      │       │               │                   │
+│▓▓▓FLOOR▓▓▓▓│      │▓FLOOR▓▓│      │▓FLOOR▓│               │▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│
+└────────────┴──────┴────────┴──────┴───────┴───────────────┴────────────────────┘
 
-B room: Move block onto target pad (+25), Duplicate bridge over wide pit (-20),
-        Delete wall block (-15). 3 energy cells scattered.
+Wide pit (300px = 1.49× jump range of 201.5px): must Duplicate bridge from B.
+Gap at x=1300 (100px = 0.5× jump range): jumpable practice gap.
+Gap at x=1840 (100px): jumpable via step platform at x=1900,y=620.
+Rock wall (x=1700, h=200px > jump height 120+80 margin): must Delete from B.
+Portal 1 (x=150,y=590): B-room objective (push crate+plate) + Duplicate.
+Portal 2 (x=1430,y=590): Delete wall — edit_wall_b1 at x=1700 is 216px away (center check).
+Goal block: solid x=2000,y=560,h=160. Step at x=1900,y=620 bridges the 60px climb.
 ```
 
 ### Points Budget
 
-| Event                          | EP Change | Running Total |
-|--------------------------------|-----------|---------------|
-| Start                          | +30       | 30            |
-| Energy cell #1 (upper plat)    | +5        | 35            |
-| Portal → B, complete push_block| +25       | 60            |
-| Time bonus (within 25 s)       | +10       | 70            |
-| Duplicate bridge (skill in B)  | −20       | 50            |
-| Clear obstacle reward          | +10       | 60            |
-| Delete wall (skill in B)       | −15       | 45            |
-| Clear obstacle reward          | +10       | 55            |
-| Portal → A, cross bridge       | —         | 55            |
-| Energy cell #2                 | +5        | 60            |
-| Energy cell #3                 | +5        | 65            |
-| Collect ship part (Nav Chip)   | +30       | 95            |
-| Reach exit, 3 lives left       | +30       | 125           |
+| Event                              | EP Change | Running Total |
+|------------------------------------|-----------|---------------|
+| Start                              | +30       | 30            |
+| Cell #1 (ground, x=430)            | +5        | 35            |
+| Portal 1 → B, push_block objective | +25       | 60            |
+| Time bonus (within 25 s)           | +10       | 70            |
+| Duplicate bridge (skill in B)      | −20       | 50            |
+| Clear obstacle reward              | +10       | 60            |
+| Portal 1 → A, cross bridge         | —         | 60            |
+| Cell #2 (ledge, x=800)             | +5        | 65            |
+| Jump practice gap (x=1300, 100px)  | —         | 65            |
+| Portal 2 → B                       | —         | 65            |
+| Delete wall (skill in B)           | −15       | 50            |
+| Clear obstacle reward              | +10       | 60            |
+| Portal 2 → A                       | —         | 60            |
+| Cell #3 (x=1700)                   | +5        | 65            |
+| Step + jump onto goal block        | —         | 65            |
+| Collect ship part (Nav Chip)       | +30       | 95            |
+| Reach exit, 3 lives left           | +30       | 125           |
 
 **Minimum to finish (no deaths, no time bonus, skip all cells):**
 30 + 25 − 20 + 10 − 15 + 10 + 30 = **70 EP** (generous)
 
-**After 1 death (−20 EP, 2 lives left, +20 at end instead of +30):**
+**After 1 death (−20 EP, respawns at Portal 2, 2 lives left, +20 at end):**
 70 − 20 − 10 = **40 EP** — still completable ✓
 
 ### Solvability Check
 
-- Player starts with 30 EP.
-- Must spend: Duplicate 20 + Delete 15 = **35 EP** on skills.
-- Earns before spending: B objective +25 = **+25** → total 55 EP before skills.
-- After skills: 55 − 35 + 20 (clear rewards) = **40 EP** remaining.
-- Remaining rewards: 3 cells +15, part +30, lives +30 = **+75** → finish at 115+.
-- Even after 1 death: 40 − 20 + 15 + 30 + 20 = **85 EP**. ✓ Generous.
+- Must spend: Duplicate 20 + Delete 15 = **35 EP** total on skills.
+- Earns before spending: cell #1 +5, B objective +25 = **+30** → total 60 EP before skills.
+- After skills: 60 − 35 + 20 (clear rewards) = **45 EP** remaining.
+- Remaining rewards: cells #2 & #3 +10, part +30, 3 lives +30 = **+70** → finish at 115+.
+- After 1 death (respawns at Portal 2, 2 lives): 45 − 20 + 10 + 30 + 20 = **85 EP**. ✓
 
 ## Level 3 — Europa (Ice Moon)
 
 ### Side-View Sketch
 
 ```
-X=0       X=600  X=900    X=1500  X=1600         X=2200          X=3000
-┌─────────┐      ┌────────┐▓door▓ ┌──────────────────────────────────┐
-│         │      │        │ ▓▓▓▓  │                                  │
-│SPAWN ●  │ PIT  │ [cell] │       │  MONSTER →←    [cell]            │
-│         │(300) │ [part1]│       │                [part2] [EXIT]    │
-│[portal↕]│      │        │       │  [cell]  ■■■upper plat■■■■■■■■  │
-│■■■■■■■■■│      │■■■■■■■■│       │■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■│
-│▓▓FLOOR▓▓│      │▓FLOOR▓▓│       │▓▓▓▓▓▓▓▓▓▓▓FLOOR▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓│
-└─────────┘      └────────┘       └──────────────────────────────────┘
+X=0       X=600  X=1020   X=1350  X=1600 X=1720      X=2100        X=3120
+┌─────────┐      ┌────────┐▓wall▓  step  ┌──────────────────────────────────┐
+│         │      │        │ ▓▓▓▓   ▓▓▓   │                                  │
+│SPAWN ●  │ PIT  │ [p2↕]  │              │ [p3↕]   MONSTER    [cell3]       │
+│[p1↕]    │(420) │ [cell1]│              │         (w48,h48)  [part2][EXIT] │
+│[crate]  │      │ [part1]│              │                                  │
+│[plate]  │      │        │       [cell2]│▓▓▓▓▓▓▓ SOLID SHELF ▓▓▓▓▓▓▓▓▓▓▓▓▓▓│
+│▓▓FLOOR▓▓│←420→ │▓FLOOR▓▓│       ▓FLOOR▓│ x=1720, y=560, h=160             │
+└─────────┴──────┴────────┴──────────────┴──────────────────────────────────┘
+Y=680 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
-B room (portal on upper-left ledge):
-  Objective: push crate onto plate (+25).
-  Skills: Move door editBlock (-10), Duplicate bridge over pit (-20),
-          Delete monster editBlock (-15) OR return to A and Shield (-10).
+World A: Pit (600-1020, w=420), Portal 1 (x=150), Portal 2 (x=1080),
+         cell 1 (x=1180), part 1 (x=1260), wall (x=1350), cell 2 (x=1500),
+         step (x=1600, y=620), shelf (x=1720, y=560), Portal 3 (x=1780),
+         monster (x=2100), cell 3 (x=2350), part 2 (x=2650), exit (x=2950).
+World B: crate + plate objective (x=330, x=440),
+         Twins: bridge (duplicate, x=600), wall (move, x=1350), monster (delete, x=2100).
 ```
 
 ### Points Budget — Path A (Delete monster in B)
