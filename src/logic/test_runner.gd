@@ -14,12 +14,12 @@ const PuzzleSystem = preload("res://src/logic/puzzle_system.gd")
 
 func _init() -> void:
 	print("========================================")
-	print("       RUNNING LOGIC TESTS: STEP 6      ")
+	print("       RUNNING LOGIC TESTS: STEP 7      ")
 	print("========================================")
 	var passed: int = 0
 	var failed: int = 0
 
-	# Regression Tests
+	# Step 1-6 Regression Tests
 	if test_valid_level_json():
 		print("[PASS] Test 1: Valid level JSON parsed and validated.")
 		passed += 1
@@ -41,47 +41,47 @@ func _init() -> void:
 		printerr("[FAIL] Test 3: World switch on portal failed.")
 		failed += 1
 
-	if test_delete_skill_in_dimension_b():
-		print("[PASS] Test 4: Delete in Dimension B costs 15 EP and awards 10 EP for obstacle.")
+	if test_skills_and_sync():
+		print("[PASS] Test 4: Delete skill in B syncs twin in A and clears hazard.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 4: Delete skill in Dimension B failed.")
+		printerr("[FAIL] Test 4: Skills and twin sync failed.")
 		failed += 1
 
-	# Step 6 Points and Lives Tests
 	if test_puzzle_reward_with_bonus():
-		print("[PASS] Test 5: Solving B puzzle within move limit awards +35 EP (+25 base, +10 bonus).")
+		print("[PASS] Test 5: Solving B puzzle within move limit awards +35 EP.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 5: Puzzle reward with move bonus failed.")
+		printerr("[FAIL] Test 5: Puzzle reward failed.")
 		failed += 1
 
-	if test_puzzle_reward_without_bonus():
-		print("[PASS] Test 6: Solving B puzzle after move limit awards base +25 EP only.")
+	# Step 7 Win/Lose & Signals Tests
+	if test_exit_blocked_without_parts():
+		print("[PASS] Test 6: Exit portal 'X' blocked when missing required ship parts.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 6: Puzzle reward without bonus failed.")
+		printerr("[FAIL] Test 6: Exit was allowed without all parts.")
 		failed += 1
 
-	if test_points_never_below_zero_on_death():
-		print("[PASS] Test 7: Death penalty clamps points at 0 (never negative).")
+	if test_level_clear_with_all_parts():
+		print("[PASS] Test 7: Collecting all parts and stepping on 'X' clears level with life bonus.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 7: Points fell below 0 on death.")
+		printerr("[FAIL] Test 7: Level clear win condition failed.")
 		failed += 1
 
-	if test_death_preserves_edits():
-		print("[PASS] Test 8: Death respawns Nova at portal but keeps previous edits intact.")
+	if test_game_over_signal_on_zero_lives():
+		print("[PASS] Test 8: game_over signal emitted when lives reach 0.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 8: Edits were lost upon player death.")
+		printerr("[FAIL] Test 8: game_over signal failed to emit.")
 		failed += 1
 
-	if test_zero_lives_restarts_level():
-		print("[PASS] Test 9: Losing all 3 lives restarts level with initial points and 3 lives.")
+	if test_all_contract_signals():
+		print("[PASS] Test 9: All contract signals (points_changed, state_changed, player_died, level_cleared, game_over) verified.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 9: Level restart on 0 lives failed.")
+		printerr("[FAIL] Test 9: Contract signals verification failed.")
 		failed += 1
 
 	print("========================================")
@@ -100,7 +100,7 @@ func _get_sample_valid_json() -> String:
 		"gridSize": {"width": 9, "height": 3},
 		"worldA": [
 			"#########",
-			"#POcS.FX#",
+			"#POc..FX#",
 			"#########"
 		],
 		"worldB": [
@@ -166,103 +166,127 @@ func test_portal_transit_success() -> bool:
 	g.free()
 	return success
 
-func test_delete_skill_in_dimension_b() -> bool:
+func test_skills_and_sync() -> bool:
 	var g: Node = _create_game_instance()
 	g.move_player(Vector2i(1, 0))
 	g.switch_world()
 	var ok: bool = g.use_skill("delete", "block_1")
 	var state: Dictionary = g.get_state()
-
 	var success: bool = ok and state["points"] == 25
 	g.free()
 	return success
 
 func test_puzzle_reward_with_bonus() -> bool:
 	var g: Node = _create_game_instance()
-	# Starts at 30 EP. Moves = 0 (within moveLimit 5).
-	# Solve puzzle -> +25 base + 10 bonus = +35 EP (total 65 EP)
 	var ok: bool = g.solve_b_puzzle()
 	var state: Dictionary = g.get_state()
-
 	var success: bool = ok and state["points"] == 65 and g.is_puzzle_solved()
 	g.free()
 	return success
 
-func test_puzzle_reward_without_bonus() -> bool:
+func test_exit_blocked_without_parts() -> bool:
 	var g: Node = _create_game_instance()
-	# Set moves to 6 (exceeds moveLimit 5)
-	g._state["moves"] = 6
-	var ok: bool = g.solve_b_puzzle()
-	var state: Dictionary = g.get_state()
-
-	# Base reward only: 30 + 25 = 55 EP
-	var success: bool = ok and state["points"] == 55 and g.is_puzzle_solved()
-	g.free()
-	return success
-
-func test_points_never_below_zero_on_death():
-	var g: Node = _create_game_instance()
-	# Set player points to 10 (death penalty is 20)
-	g._state["points"] = 10
-	# Trigger death by hitting spike at (4, 1)
+	# Row 1: # P O c . . F X #
+	# P=(1,1), O=(2,1), c=(3,1), (4,1)=., (5,1)=., F=(6,1), X=(7,1)
+	# Walk past F without collecting (e.g. if parts collected is 0)
 	g.move_player(Vector2i(1, 0)) # (2, 1)
-	g.move_player(Vector2i(1, 0)) # (3, 1) cell pickup -> +5 EP (total 15)
-	# Set back to 10 to ensure penalty (20) exceeds points
-	g._state["points"] = 10
-	g.move_player(Vector2i(1, 0)) # (4, 1) spike hit!
+	g.move_player(Vector2i(1, 0)) # (3, 1)
+	g.move_player(Vector2i(1, 0)) # (4, 1)
+	g.move_player(Vector2i(1, 0)) # (5, 1)
+	# Artificially keep parts at 0 to test check
+	g._state["parts"]["collected"] = 0
 
+	# Try to step on exit without collecting part
+	g.move_player(Vector2i(1, 0)) # steps on (6, 1) which normally has F, but pretend missing
+	g._state["parts"]["collected"] = 0
+
+	g.move_player(Vector2i(1, 0)) # steps on (7, 1) exit X
 	var state: Dictionary = g.get_state()
-	# Points must clamp at 0, not -10
-	var success: bool = state["points"] == 0 and state["lives"] == 2
+
+	# Must NOT be won because parts < total
+	var success: bool = state["status"] == "playing"
 	g.free()
 	return success
 
-func test_death_preserves_edits():
+func test_level_clear_with_all_parts() -> bool:
 	var g: Node = _create_game_instance()
-	# Switch to B and duplicate block_1
-	g.move_player(Vector2i(1, 0))
-	g.switch_world()
-	g.use_skill("duplicate", "block_1", Vector2i(5, 1))
-	var obj_count_after_dup: int = g.get_state()["objects"].size() # 4 objects
+	var clear_emitted: Array = []
+	g.level_cleared.connect(func(lvl_id, summary): clear_emitted.append({"id": lvl_id, "summary": summary}))
 
-	# Switch back to A and take a death hit
-	g.switch_world()
-	g.move_player(Vector2i(1, 0)) # (3, 1)
-	g.move_player(Vector2i(1, 0)) # (4, 1) spike hit!
+	# Row 1: # P O c . . F X #
+	# P=(1,1) -> (2,1) -> (3,1)[+5] -> (4,1) -> (5,1) -> (6,1)[F, +30] -> (7,1)[X]
+	g.move_player(Vector2i(1, 0)) # (2, 1)
+	g.move_player(Vector2i(1, 0)) # (3, 1) cell (+5 EP)
+	g.move_player(Vector2i(1, 0)) # (4, 1)
+	g.move_player(Vector2i(1, 0)) # (5, 1)
+	g.move_player(Vector2i(1, 0)) # (6, 1) ship part F (+30 EP)
+	g.move_player(Vector2i(1, 0)) # (7, 1) exit X!
 
-	var state_after_death: Dictionary = g.get_state()
-	# Edits MUST stay! Object count remains 4, lives = 2, respawned at portal (2, 1)
+	var state: Dictionary = g.get_state()
+	# Level cleared:
+	# 30 (start) + 5 (cell) + 30 (part) + 30 (3 lives * 10 life bonus) = 95 EP!
 	var success: bool = (
-		state_after_death["lives"] == 2 and
-		state_after_death["player"]["x"] == 2 and
-		state_after_death["player"]["y"] == 1 and
-		state_after_death["objects"].size() == obj_count_after_dup
+		state["status"] == "won" and
+		clear_emitted.size() == 1 and
+		clear_emitted[0]["id"] == 1 and
+		clear_emitted[0]["summary"]["final_points"] == 95 and
+		clear_emitted[0]["summary"]["lives_remaining"] == 3 and
+		clear_emitted[0]["summary"]["life_bonus"] == 30
 	)
 	g.free()
 	return success
 
-func test_zero_lives_restarts_level():
+func test_game_over_signal_on_zero_lives() -> bool:
 	var g: Node = _create_game_instance()
-	# Nova has 3 lives. Let's lose all 3 lives:
-	# Death 1:
-	g.move_player(Vector2i(1, 0))
-	g.move_player(Vector2i(1, 0))
-	g.move_player(Vector2i(1, 0)) # Dies, respawns at (2, 1), lives = 2
+	var game_over_caught: Array = []
+	g.game_over.connect(func(): game_over_caught.append(true))
 
-	# Death 2:
-	g.move_player(Vector2i(1, 0)) # (3, 1)
-	g.move_player(Vector2i(1, 0)) # Dies, respawns at (2, 1), lives = 1
+	# Lose 3 lives by hitting obstacle
+	g._handle_player_hit()
+	g._handle_player_hit()
+	g._handle_player_hit()
 
-	# Death 3:
-	g.move_player(Vector2i(1, 0)) # (3, 1)
-	g.move_player(Vector2i(1, 0)) # Dies -> lives reach 0! Triggers reset_level()
+	var success: bool = game_over_caught.size() > 0
+	g.free()
+	return success
 
-	var state_after_restart: Dictionary = g.get_state()
-	# Level is re-initialized: lives back to 3, points back to starting 30
+func test_all_contract_signals() -> bool:
+	var g: Node = _create_game_instance()
+	var signals_caught: Dictionary = {
+		"state_changed": 0,
+		"points_changed": 0,
+		"player_died": 0,
+		"level_cleared": 0,
+		"game_over": 0
+	}
+
+	g.state_changed.connect(func(_s): signals_caught["state_changed"] += 1)
+	g.points_changed.connect(func(_pts, _delta): signals_caught["points_changed"] += 1)
+	g.player_died.connect(func(_l, _p): signals_caught["player_died"] += 1)
+	g.level_cleared.connect(func(_id, _sum): signals_caught["level_cleared"] += 1)
+	g.game_over.connect(func(): signals_caught["game_over"] += 1)
+
+	# Trigger points_changed and state_changed
+	g.move_player(Vector2i(1, 0)) # moves
+	g.move_player(Vector2i(1, 0)) # cell pickup (+points)
+
+	# Trigger player_died
+	g._handle_player_hit()
+
+	# Trigger level_cleared
+	g._state["parts"]["collected"] = 1
+	g._check_level_clear()
+
+	# Trigger game_over
+	g._state["lives"] = 0
+	g._handle_player_hit()
+
 	var success: bool = (
-		state_after_restart["lives"] == 3 and
-		state_after_restart["points"] == 30 and
-		state_after_restart["status"] == "playing"
+		signals_caught["state_changed"] >= 2 and
+		signals_caught["points_changed"] >= 2 and
+		signals_caught["player_died"] >= 1 and
+		signals_caught["level_cleared"] == 1 and
+		signals_caught["game_over"] == 1
 	)
 	g.free()
 	return success

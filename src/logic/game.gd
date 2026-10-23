@@ -120,6 +120,12 @@ func move_player(direction: Vector2i) -> bool:
 	# 4. Check pickups at player destination
 	_handle_pickups(target_pos, tile, active_grid)
 
+	# 4.5 Check level exit portal 'X' in Dimension A
+	if tile == "X" and _state["world"] == "A":
+		if _check_level_clear():
+			state_changed.emit(_state)
+			return true
+
 	# 5. Check hazard immediately upon stepping (spikes/gaps/stationary monsters)
 	if GridSystemScript.check_hazard_at(target_pos, tile, _state["objects"], _state["world"]):
 		_handle_player_hit()
@@ -137,6 +143,37 @@ func move_player(direction: Vector2i) -> bool:
 			_handle_player_hit()
 
 	state_changed.emit(_state)
+	return true
+
+## Checks if all ship parts are collected to activate the exit portal.
+## Awards remaining life bonuses, updates status to "won", and emits level_cleared.
+func _check_level_clear() -> bool:
+	var collected: int = int(_state["parts"].get("collected", 0))
+	var total: int = int(_state["parts"].get("total", 1))
+
+	if collected < total:
+		print("[Game] Cannot exit: missing ship parts (%d/%d)" % [collected, total])
+		return false
+
+	_state["status"] = "won"
+
+	# Calculate life bonus: +10 EP per life remaining
+	var lives_left: int = int(_state.get("lives", 0))
+	var life_bonus: int = lives_left * ConfigScript.REWARD_PER_LIFE_AT_LEVEL_END
+	if life_bonus > 0:
+		_state["points"] += life_bonus
+		points_changed.emit(_state["points"], life_bonus)
+
+	var score_summary: Dictionary = {
+		"level_id": int(_state["level_id"]),
+		"planet": str(_current_level_data.get("planet", "")),
+		"moves": int(_state["moves"]),
+		"lives_remaining": lives_left,
+		"life_bonus": life_bonus,
+		"final_points": int(_state["points"])
+	}
+
+	level_cleared.emit(_state["level_id"], score_summary)
 	return true
 
 ## Processes pickups: energy cells (+5 EP) and ship parts (+30 EP).
