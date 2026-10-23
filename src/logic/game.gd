@@ -9,7 +9,6 @@ extends Node
 signal state_changed
 signal points_changed(new_points: int)
 signal player_died(lives_left: int)
-@warning_ignore("unused_signal")
 signal level_cleared(points: int)
 signal game_over
 
@@ -232,8 +231,10 @@ func use_skill(skill_name: String, target_id: String = "") -> void:
 	emit_signal("state_changed")
 
 func reset_level() -> void:
-	# Stub — will be filled in Step 6
-	push_warning("Game.reset_level() not yet implemented.")
+	if _state.is_empty():
+		return
+	var lvl_id: int = int(_state.get("level_id", 1))
+	load_level(lvl_id)
 
 func get_state() -> Dictionary:
 	return _state.duplicate(true)
@@ -402,6 +403,9 @@ func _physics_process(delta: float) -> void:
 	# ── Hazard checks (spike / monster / pit) ─────────────
 	_check_hazards(p)
 
+	# ── Interactions (Energy cells, Ship parts, Objective, Exit) ─
+	_check_interactions(p, delta)
+
 	emit_signal("state_changed")
 
 
@@ -567,4 +571,131 @@ func _kill_player() -> void:
 
 	emit_signal("player_died", lives)
 	emit_signal("state_changed")
+
+
+# ─────────────────────────────────────────────────────────
+# INTERACTIONS & OBJECTIVES  (Step 6)
+# ─────────────────────────────────────────────────────────
+
+func _check_interactions(p: Dictionary, delta: float) -> void:
+	if _state.get("status", "playing") != "playing":
+		return
+
+	var current_world: String = _state.get("world", "A")
+	var pr: Dictionary = _player_rect(p)
+
+	# ── Dimension B: Crate Pushing & Objective ────────────
+	if current_world == "B":
+		for ent in _state.get("entities", []):
+			if ent.get("world", "") == "B" and ent.get("type", "") == "crate" and not ent.get("deleted", false):
+				_update_crate_push(p, ent, delta)
+		_check_b_objective()
+		return
+
+	# ── Dimension A: Energy Cells, Ship Parts, and Exit Portal ──
+	var entities: Array = _state.get("entities", [])
+	for ent in entities:
+		if ent.get("world", "A") != "A":
+			continue
+		if ent.get("deleted", false) or not ent.get("active", true):
+			continue
+
+		var etype: String = str(ent.get("type", ""))
+		var er: Dictionary = {
+			"x": float(ent["x"]), "y": float(ent["y"]),
+			"w": float(ent.get("w", 32)), "h": float(ent.get("h", 32))
+		}
+
+		if not _rects_overlap(pr, er):
+			continue
+
+		match etype:
+			"energyCell":
+				if not ent.get("collected", false):
+					ent["collected"] = true
+					ent["active"] = false
+					_state["points"] = _state.get("points", 0) + Config.REWARD_ENERGY_CELL
+					emit_signal("points_changed", _state["points"])
+					emit_signal("state_changed")
+
+			"shipPart":
+				if not ent.get("collected", false):
+					ent["collected"] = true
+					ent["active"] = false
+					var parts: Dictionary = _state.get("parts", {"collected": 0, "total": 1})
+					parts["collected"] = int(parts.get("collected", 0)) + 1
+					_state["parts"] = parts
+					_state["points"] = _state.get("points", 0) + Config.REWARD_SHIP_PART
+					emit_signal("points_changed", _state["points"])
+					emit_signal("state_changed")
+
+			"exit":
+				var parts: Dictionary = _state.get("parts", {})
+				var collected: int = int(parts.get("collected", 0))
+				var total: int = int(parts.get("total", 1))
+				if collected >= total:
+					# Level Cleared!
+					var lives: int = int(_state.get("lives", 3))
+					var life_bonus: int = lives * Config.REWARD_LIFE_END
+					_state["points"] = _state.get("points", 0) + life_bonus
+					_state["status"] = "won"
+					emit_signal("points_changed", _state["points"])
+					emit_signal("level_cleared", _state["points"])
+					emit_signal("state_changed")
+					return
+
+
+func _update_crate_push(p: Dictionary, crate: Dictionary, delta: float) -> void:
+	var pr: Dictionary = _player_rect(p)
+	var cw: float = float(crate.get("w", 56))
+	var ch: float = float(crate.get("h", 56))
+	var cr: Dictionary = {
+		"x": float(crate["x"]), "y": float(crate["y"]),
+		"w": cw, "h": ch
+	}
+	if _rects_overlap(pr, cr):
+		var p_center_x: float = float(p.get("x", 0.0))
+		var c_center_x: float = float(crate["x"]) + cw * 0.5
+		var push_dir: float = 1.0 if p_center_x < c_center_x else -1.0
+		var push_amount: float = Config.RUN_SPEED * 0.8 * delta * push_dir
+		crate["x"] = float(crate["x"]) + push_amount
+
+
+func _check_b_objective() -> void:
+	var obj: Dictionary = _state.get("objective", {})
+	if obj.get("completed", false):
+		return
+
+	var crate: Dictionary = {}
+	var plate: Dictionary = {}
+	for ent in _state.get("entities", []):
+		if ent.get("world", "") != "B":
+			continue
+		if ent.get("type", "") == "crate" and not ent.get("deleted", false):
+			crate = ent
+		elif ent.get("type", "") == "plate" and not ent.get("deleted", false):
+			plate = ent
+
+	if crate.is_empty() or plate.is_empty():
+		return
+
+	var cr: Dictionary = {
+		"x": float(crate["x"]), "y": float(crate["y"]),
+		"w": float(crate.get("w", 56)), "h": float(crate.get("h", 56))
+	}
+	var plr: Dictionary = {
+		"x": float(plate["x"]), "y": float(plate["y"]),
+		"w": float(plate.get("w", 64)), "h": float(plate.get("h", 16))
+	}
+
+	if _rects_overlap(cr, plr):
+		obj["completed"] = true
+		var reward: int = Config.REWARD_B_OBJECTIVE
+		var time_limit: float = float(obj.get("timeLimit", 0.0))
+		if time_limit > 0.0 and float(_state.get("time", 0.0)) <= time_limit:
+			reward += Config.REWARD_B_TIME_BONUS
+		_state["points"] = _state.get("points", 0) + reward
+		emit_signal("points_changed", _state["points"])
+		emit_signal("state_changed")
+
 

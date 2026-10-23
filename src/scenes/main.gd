@@ -5,6 +5,4 @@ extends Node2D
 
 func _ready() -> void:
 	print("Rift Runner — main scene loaded.")
-	var gameplay_scene: PackedScene = load("res://src/scenes/gameplay.tscn")
-	if gameplay_scene:
-		add_child(gameplay_scene.instantiate())
+	get_tree().change_scene_to_file.call_deferred("res://src/scenes/title_screen.tscn")

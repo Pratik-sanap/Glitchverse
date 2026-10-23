@@ -129,70 +129,71 @@ func _build_ui() -> void:
 	_float_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root_container.add_child(_float_container)
 	
-	# ── Bottom Skill Bar ────────────────────────────────────
-	var bottom_panel: PanelContainer = PanelContainer.new()
-	bottom_panel.name = "SkillBar"
-	bottom_panel.anchor_left = 0.5
-	bottom_panel.anchor_right = 0.5
-	bottom_panel.anchor_top = 1.0
-	bottom_panel.anchor_bottom = 1.0
-	bottom_panel.offset_left = -350
-	bottom_panel.offset_right = 350
-	bottom_panel.offset_top = -70
-	bottom_panel.offset_bottom = -18
-	bottom_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	bottom_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	# ── Sleek Top-Right Skill Bar (Non-Obstructing) ─────────
+	var skill_panel: PanelContainer = PanelContainer.new()
+	skill_panel.name = "SkillBar"
+	skill_panel.anchor_left = 1.0
+	skill_panel.anchor_right = 1.0
+	skill_panel.anchor_top = 0.0
+	skill_panel.anchor_bottom = 0.0
+	skill_panel.offset_left = -490
+	skill_panel.offset_right = -20
+	skill_panel.offset_top = 74
+	skill_panel.offset_bottom = 110
+	skill_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	skill_panel.grow_vertical = Control.GROW_DIRECTION_END
 	
 	var panel_style: StyleBoxFlat = StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.06, 0.08, 0.14, 0.92)
+	panel_style.bg_color = Color(0.05, 0.07, 0.12, 0.85)
 	panel_style.border_width_left = 1
 	panel_style.border_width_right = 1
 	panel_style.border_width_top = 1
 	panel_style.border_width_bottom = 1
-	panel_style.border_color = Color(0.0, 0.85, 1.0, 0.5)
-	panel_style.corner_radius_top_left = 8
-	panel_style.corner_radius_top_right = 8
-	panel_style.corner_radius_bottom_left = 8
-	panel_style.corner_radius_bottom_right = 8
-	panel_style.content_margin_left = 12
-	panel_style.content_margin_right = 12
-	panel_style.content_margin_top = 6
-	panel_style.content_margin_bottom = 6
-	bottom_panel.add_theme_stylebox_override("panel", panel_style)
-	_root_container.add_child(bottom_panel)
+	panel_style.border_color = Color(0.0, 0.85, 1.0, 0.35)
+	panel_style.corner_radius_top_left = 6
+	panel_style.corner_radius_top_right = 6
+	panel_style.corner_radius_bottom_left = 6
+	panel_style.corner_radius_bottom_right = 6
+	panel_style.content_margin_left = 8
+	panel_style.content_margin_right = 8
+	panel_style.content_margin_top = 4
+	panel_style.content_margin_bottom = 4
+	skill_panel.add_theme_stylebox_override("panel", panel_style)
+	_root_container.add_child(skill_panel)
 	
 	var skill_box: HBoxContainer = HBoxContainer.new()
-	skill_box.add_theme_constant_override("separation", 10)
+	skill_box.add_theme_constant_override("separation", 6)
 	skill_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom_panel.add_child(skill_box)
+	skill_panel.add_child(skill_box)
 	
 	# Skill 1: Delete
-	_btn_delete = Button.new()
-	_btn_delete.text = "[1] DELETE (%d EP)" % Config.COST_DELETE
-	_btn_delete.focus_mode = Control.FOCUS_NONE
+	_btn_delete = _create_skill_btn("[1] DEL (15)", Color(0.9, 0.25, 0.35))
 	_btn_delete.pressed.connect(func(): Game.use_skill("delete", ""))
 	skill_box.add_child(_btn_delete)
 	
 	# Skill 2: Duplicate
-	_btn_duplicate = Button.new()
-	_btn_duplicate.text = "[2] DUPLICATE (%d EP)" % Config.COST_DUPLICATE
-	_btn_duplicate.focus_mode = Control.FOCUS_NONE
+	_btn_duplicate = _create_skill_btn("[2] DUP (20)", Color(0.1, 0.85, 1.0))
 	_btn_duplicate.pressed.connect(func(): Game.use_skill("duplicate", ""))
 	skill_box.add_child(_btn_duplicate)
 	
 	# Skill 3: Move
-	_btn_move = Button.new()
-	_btn_move.text = "[3] MOVE (%d EP)" % Config.COST_MOVE
-	_btn_move.focus_mode = Control.FOCUS_NONE
+	_btn_move = _create_skill_btn("[3] MOV (10)", Color(1.0, 0.8, 0.2))
 	_btn_move.pressed.connect(func(): Game.use_skill("move", ""))
 	skill_box.add_child(_btn_move)
 	
 	# Skill 4: Shield
-	_btn_shield = Button.new()
-	_btn_shield.text = "[4] SHIELD (%d EP)" % Config.COST_SHIELD
-	_btn_shield.focus_mode = Control.FOCUS_NONE
+	_btn_shield = _create_skill_btn("[4] SHLD (10)", Color(0.2, 1.0, 0.5))
 	_btn_shield.pressed.connect(func(): Game.use_skill("shield", ""))
 	skill_box.add_child(_btn_shield)
+
+	# Minimize / Close Button
+	var btn_close: Button = Button.new()
+	btn_close.text = "✖"
+	btn_close.custom_minimum_size = Vector2(24, 24)
+	btn_close.focus_mode = Control.FOCUS_NONE
+	btn_close.add_theme_font_size_override("font_size", 10)
+	btn_close.pressed.connect(func(): skill_panel.visible = false)
+	skill_box.add_child(btn_close)
 
 
 # ── STATE & SIGNAL HANDLERS ─────────────────────────────────
@@ -263,11 +264,44 @@ func _update_lives(lives_count: int) -> void:
 			_life_icons[i].add_theme_color_override("font_color", COLOR_HEART_EMPTY)
 
 
+func _create_skill_btn(text: String, accent: Color) -> Button:
+	var btn: Button = Button.new()
+	btn.text = text
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.add_theme_font_size_override("font_size", 11)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_color_override("font_disabled_color", Color(0.45, 0.48, 0.55, 0.45))
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	
+	var st: StyleBoxFlat = StyleBoxFlat.new()
+	st.bg_color = Color(0.08, 0.12, 0.2, 0.85)
+	st.border_width_left = 1
+	st.border_width_right = 1
+	st.border_width_top = 1
+	st.border_width_bottom = 1
+	st.border_color = accent.darkened(0.4)
+	st.corner_radius_top_left = 4
+	st.corner_radius_top_right = 4
+	st.corner_radius_bottom_left = 4
+	st.corner_radius_bottom_right = 4
+	btn.add_theme_stylebox_override("normal", st)
+	
+	var hov: StyleBoxFlat = st.duplicate()
+	hov.bg_color = Color(0.14, 0.2, 0.32, 0.95)
+	hov.border_color = accent
+	btn.add_theme_stylebox_override("hover", hov)
+	return btn
+
+
 func _update_skill_buttons(points: int) -> void:
-	_btn_delete.disabled = (points < Config.COST_DELETE)
-	_btn_duplicate.disabled = (points < Config.COST_DUPLICATE)
-	_btn_move.disabled = (points < Config.COST_MOVE)
-	_btn_shield.disabled = (points < Config.COST_SHIELD)
+	var state: Dictionary = Game.get_state()
+	var world: String = state.get("world", "A")
+	
+	# Skills 1-3 only valid in World B; Shield only valid in World A
+	_btn_delete.disabled = (world != "B" or points < Config.COST_DELETE)
+	_btn_duplicate.disabled = (world != "B" or points < Config.COST_DUPLICATE)
+	_btn_move.disabled = (world != "B" or points < Config.COST_MOVE)
+	_btn_shield.disabled = (world != "A" or points < Config.COST_SHIELD)
 
 
 # ── FLOATING NUMBER ANIMATION ───────────────────────────────
