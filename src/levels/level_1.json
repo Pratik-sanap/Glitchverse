@@ -15,11 +15,11 @@
   ],
   "worldB": [
     "##########",
-    "#O.......#",
+    "#........#",
     "#........#",
     "####.#####",
     "#........#",
-    "#...B.T..#",
+    "#O.......#",
     "##########"
   ],
   "objects": [
@@ -32,7 +32,7 @@
     },
     {
       "id": "block_spike_1",
-      "type": "block",
+      "type": "pushblock",
       "pos": { "x": 6, "y": 1 },
       "world": "B",
       "twinId": "spike_1"
@@ -69,10 +69,10 @@
   "parts": ["Fuel Cell"],
   "portals": [
     { "world": "A", "x": 1, "y": 5 },
-    { "world": "B", "x": 1, "y": 1 }
+    { "world": "B", "x": 1, "y": 5 }
   ],
   "puzzle": {
-    "type": "push_to_target",
+    "type": "pushBlockToTarget",
     "moveLimit": 8
   }
 }
