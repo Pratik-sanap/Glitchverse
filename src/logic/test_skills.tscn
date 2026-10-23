@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://d3xskillstest"]
+
+[ext_resource type="Script" path="res://src/logic/test_skills.gd" id="1_test"]
+
+[node name="TestSkills" type="Node"]
+script = ExtResource("1_test")
