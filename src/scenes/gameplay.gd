@@ -3,6 +3,8 @@
 ## Reads level geometry from JSON and synchronizes visuals with Game state.
 extends Node2D
 
+const GameProgress = preload("res://src/scenes/game_progress.gd")
+
 # ── References & Containers ─────────────────────────────────
 var _level_data: Dictionary = {}
 var _level_id: int = 1
@@ -23,9 +25,11 @@ var _entity_nodes: Dictionary = {}
 
 
 func _ready() -> void:
-	# Check if Game already has an active level ID; default to 1
+	# Check if Game already has an active level ID, or read from GameProgress
 	var initial_state: Dictionary = Game.get_state()
-	_level_id = initial_state.get("level_id", 1)
+	_level_id = initial_state.get("level_id", GameProgress.selected_level)
+	if _level_id <= 0:
+		_level_id = 1
 	
 	_load_level_file(_level_id)
 	_build_scene_hierarchy()
@@ -39,6 +43,10 @@ func _ready() -> void:
 	# Connect to logic signals
 	if not Game.state_changed.is_connected(_on_state_changed):
 		Game.state_changed.connect(_on_state_changed)
+	if not Game.level_cleared.is_connected(_on_level_cleared):
+		Game.level_cleared.connect(_on_level_cleared)
+	if not Game.game_over.is_connected(_on_game_over):
+		Game.game_over.connect(_on_game_over)
 	
 	# Request Game to load the level
 	Game.load_level(_level_id)
@@ -195,6 +203,20 @@ func _build_scene_hierarchy() -> void:
 	bg.position = Vector2(0, 0)
 	bg.size = Vector2(lw, lh)
 	_world_root.add_child(bg)
+
+	# Dynamic background art from teammate if available
+	var planet_name: String = str(_level_data.get("planet", "Moon")).to_lower().replace(" ", "_")
+	var bg_tex: Texture2D = _try_load_texture([
+		"res://assets/sprites/bg_%s.png" % planet_name,
+		"res://assets/sprites/bg_level_%d.png" % _level_id,
+		"res://assets/sprites/background.png"
+	])
+	if bg_tex:
+		var bg_rect: TextureRect = TextureRect.new()
+		bg_rect.texture = bg_tex
+		bg_rect.size = Vector2(lw, lh)
+		bg_rect.stretch_mode = TextureRect.STRETCH_TILE
+		_world_root.add_child(bg_rect)
 	
 	# Containers
 	_platforms_container = Node2D.new()
@@ -237,6 +259,14 @@ func _build_scene_hierarchy() -> void:
 
 
 func _populate_level_geometry() -> void:
+	var planet_name: String = str(_level_data.get("planet", "Moon")).to_lower().replace(" ", "_")
+	var tile_tex: Texture2D = _try_load_texture([
+		"res://assets/sprites/tile_%s.png" % planet_name,
+		"res://assets/sprites/tile_level_%d.png" % _level_id,
+		"res://assets/sprites/platform.png",
+		"res://assets/sprites/tile.png"
+	])
+
 	# 1. Platforms
 	var platforms: Array = _level_data.get("platforms", [])
 	for p in platforms:
@@ -248,21 +278,31 @@ func _populate_level_geometry() -> void:
 		var pw: float = float(plat.get("w", 100))
 		var ph: float = float(plat.get("h", 20))
 		
-		var plat_rect: ColorRect = ColorRect.new()
-		plat_rect.color = Color(0.24, 0.27, 0.35, 1.0) # Slate moon rock
-		plat_rect.position = Vector2(px, py)
-		plat_rect.size = Vector2(pw, ph)
-		
-		# Top highlight trim
-		var trim: ColorRect = ColorRect.new()
-		trim.color = Color(0.42, 0.48, 0.60, 1.0)
-		trim.position = Vector2(0, 0)
-		trim.size = Vector2(pw, 3)
-		plat_rect.add_child(trim)
-		
-		_platforms_container.add_child(plat_rect)
+		if tile_tex:
+			var patch: NinePatchRect = NinePatchRect.new()
+			patch.texture = tile_tex
+			patch.position = Vector2(px, py)
+			patch.size = Vector2(pw, ph)
+			patch.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_TILE
+			patch.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_TILE
+			_platforms_container.add_child(patch)
+		else:
+			var plat_rect: ColorRect = ColorRect.new()
+			plat_rect.color = Color(0.24, 0.27, 0.35, 1.0) # Slate moon rock
+			plat_rect.position = Vector2(px, py)
+			plat_rect.size = Vector2(pw, ph)
+			
+			# Top highlight trim
+			var trim: ColorRect = ColorRect.new()
+			trim.color = Color(0.42, 0.48, 0.60, 1.0)
+			trim.position = Vector2(0, 0)
+			trim.size = Vector2(pw, 3)
+			plat_rect.add_child(trim)
+			
+			_platforms_container.add_child(plat_rect)
 	
 	# 2. Portals
+	var portal_tex: Texture2D = _try_load_texture(["res://assets/sprites/portal.png", "res://assets/sprites/rift.png"])
 	var portals: Array = _level_data.get("portals", [])
 	for p in portals:
 		if not (p is Dictionary):
@@ -276,17 +316,23 @@ func _populate_level_geometry() -> void:
 		var portal_node: Node2D = Node2D.new()
 		portal_node.position = Vector2(px, py)
 		
-		var portal_bg: ColorRect = ColorRect.new()
-		portal_bg.color = Color(0.6, 0.2, 0.9, 0.35) # Glowing dimensional rift
-		portal_bg.size = Vector2(pw, ph)
-		portal_node.add_child(portal_bg)
-		
-		var portal_label: Label = Label.new()
-		portal_label.text = "RIFT\n[F]"
-		portal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		portal_label.position = Vector2(0, ph * 0.3)
-		portal_label.size = Vector2(pw, 40)
-		portal_node.add_child(portal_label)
+		if portal_tex:
+			var sp: Sprite2D = Sprite2D.new()
+			sp.texture = portal_tex
+			sp.position = Vector2(pw * 0.5, ph * 0.5)
+			portal_node.add_child(sp)
+		else:
+			var portal_bg: ColorRect = ColorRect.new()
+			portal_bg.color = Color(0.6, 0.2, 0.9, 0.35) # Glowing dimensional rift
+			portal_bg.size = Vector2(pw, ph)
+			portal_node.add_child(portal_bg)
+			
+			var portal_label: Label = Label.new()
+			portal_label.text = "RIFT\n[F]"
+			portal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			portal_label.position = Vector2(0, ph * 0.3)
+			portal_label.size = Vector2(pw, 40)
+			portal_node.add_child(portal_label)
 		
 		_portals_container.add_child(portal_node)
 	
@@ -347,6 +393,13 @@ func _create_player_visual() -> Node2D:
 	return visual
 
 
+func _try_load_texture(paths: Array[String]) -> Texture2D:
+	for p in paths:
+		if ResourceLoader.exists(p):
+			return load(p) as Texture2D
+	return null
+
+
 func _create_entity_visual(ent: Dictionary) -> Node2D:
 	var node: Node2D = Node2D.new()
 	node.name = str(ent.get("id", "entity"))
@@ -358,16 +411,23 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 	
 	match etype:
 		"spike":
-			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(0.9, 0.2, 0.2, 0.9)
-			rect.size = Vector2(ew, eh)
-			node.add_child(rect)
-			
-			var lbl: Label = Label.new()
-			lbl.text = "▲▲▲"
-			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lbl.size = Vector2(ew, eh)
-			node.add_child(lbl)
+			var tex: Texture2D = _try_load_texture(["res://assets/sprites/spike.png", "res://assets/sprites/spikes.png"])
+			if tex:
+				var sp: Sprite2D = Sprite2D.new()
+				sp.texture = tex
+				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				node.add_child(sp)
+			else:
+				var rect: ColorRect = ColorRect.new()
+				rect.color = Color(0.9, 0.2, 0.2, 0.9)
+				rect.size = Vector2(ew, eh)
+				node.add_child(rect)
+				
+				var lbl: Label = Label.new()
+				lbl.text = "▲▲▲"
+				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.size = Vector2(ew, eh)
+				node.add_child(lbl)
 			
 		"pit":
 			var rect: ColorRect = ColorRect.new()
@@ -382,63 +442,124 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			node.add_child(lbl)
 			
 		"wall":
-			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(0.35, 0.4, 0.48)
-			rect.size = Vector2(ew, eh)
-			node.add_child(rect)
+			var tex: Texture2D = _try_load_texture(["res://assets/sprites/wall.png", "res://assets/sprites/block.png"])
+			if tex:
+				var sp: Sprite2D = Sprite2D.new()
+				sp.texture = tex
+				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				node.add_child(sp)
+			else:
+				var rect: ColorRect = ColorRect.new()
+				rect.color = Color(0.35, 0.4, 0.48)
+				rect.size = Vector2(ew, eh)
+				node.add_child(rect)
 			
 		"monster":
-			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(0.9, 0.4, 0.1)
-			rect.size = Vector2(ew, eh)
-			node.add_child(rect)
-			
-			var lbl: Label = Label.new()
-			lbl.text = "👾"
-			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lbl.size = Vector2(ew, eh)
-			node.add_child(lbl)
+			var tex: Texture2D = _try_load_texture(["res://assets/sprites/monster.png", "res://assets/sprites/alien.png"])
+			if tex:
+				var sp: Sprite2D = Sprite2D.new()
+				sp.texture = tex
+				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				node.add_child(sp)
+			else:
+				var rect: ColorRect = ColorRect.new()
+				rect.color = Color(0.9, 0.4, 0.1)
+				rect.size = Vector2(ew, eh)
+				node.add_child(rect)
+				
+				var lbl: Label = Label.new()
+				lbl.text = "👾"
+				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.size = Vector2(ew, eh)
+				node.add_child(lbl)
 			
 		"crate":
-			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(0.72, 0.45, 0.2)
-			rect.size = Vector2(ew, eh)
-			node.add_child(rect)
-			
-			var lbl: Label = Label.new()
-			lbl.text = "CRATE"
-			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lbl.size = Vector2(ew, eh)
-			node.add_child(lbl)
+			var tex: Texture2D = _try_load_texture(["res://assets/sprites/crate.png", "res://assets/sprites/box.png"])
+			if tex:
+				var sp: Sprite2D = Sprite2D.new()
+				sp.texture = tex
+				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				node.add_child(sp)
+			else:
+				var rect: ColorRect = ColorRect.new()
+				rect.color = Color(0.72, 0.45, 0.2)
+				rect.size = Vector2(ew, eh)
+				node.add_child(rect)
+				
+				var lbl: Label = Label.new()
+				lbl.text = "CRATE"
+				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.size = Vector2(ew, eh)
+				node.add_child(lbl)
 			
 		"plate":
-			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(0.2, 0.8, 0.4)
-			rect.size = Vector2(ew, eh)
-			node.add_child(rect)
+			var tex: Texture2D = _try_load_texture(["res://assets/sprites/plate.png", "res://assets/sprites/pad.png"])
+			if tex:
+				var sp: Sprite2D = Sprite2D.new()
+				sp.texture = tex
+				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				node.add_child(sp)
+			else:
+				var rect: ColorRect = ColorRect.new()
+				rect.color = Color(0.2, 0.8, 0.4)
+				rect.size = Vector2(ew, eh)
+				node.add_child(rect)
 			
 		"energyCell":
-			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(0.0, 1.0, 0.5)
-			rect.size = Vector2(24, 24)
-			node.add_child(rect)
-			
-			var lbl: Label = Label.new()
-			lbl.text = "+5"
-			lbl.size = Vector2(24, 24)
-			node.add_child(lbl)
+			var tex: Texture2D = _try_load_texture(["res://assets/sprites/energy_cell.png", "res://assets/sprites/cell.png"])
+			if tex:
+				var sp: Sprite2D = Sprite2D.new()
+				sp.texture = tex
+				sp.position = Vector2(12, 12)
+				node.add_child(sp)
+			else:
+				var glow: ColorRect = ColorRect.new()
+				glow.color = Color(0.0, 1.0, 0.5, 0.35)
+				glow.size = Vector2(28, 28)
+				glow.position = Vector2(-2, -2)
+				node.add_child(glow)
+
+				var rect: ColorRect = ColorRect.new()
+				rect.color = Color(0.0, 1.0, 0.5)
+				rect.size = Vector2(24, 24)
+				node.add_child(rect)
+				
+				var lbl: Label = Label.new()
+				lbl.text = "+5"
+				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				lbl.size = Vector2(24, 24)
+				lbl.add_theme_font_size_override("font_size", 10)
+				lbl.add_theme_color_override("font_color", Color(0.05, 0.15, 0.05))
+				node.add_child(lbl)
 			
 		"shipPart":
-			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(1.0, 0.85, 0.0)
-			rect.size = Vector2(32, 32)
-			node.add_child(rect)
-			
-			var lbl: Label = Label.new()
-			lbl.text = "PART"
-			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lbl.size = Vector2(32, 32)
-			node.add_child(lbl)
+			var tex: Texture2D = _try_load_texture(["res://assets/sprites/ship_part.png", "res://assets/sprites/part.png"])
+			if tex:
+				var sp: Sprite2D = Sprite2D.new()
+				sp.texture = tex
+				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				node.add_child(sp)
+			else:
+				var glow: ColorRect = ColorRect.new()
+				glow.color = Color(1.0, 0.8, 0.1, 0.4)
+				glow.size = Vector2(36, 36)
+				glow.position = Vector2(-2, -2)
+				node.add_child(glow)
+
+				var rect: ColorRect = ColorRect.new()
+				rect.color = Color(1.0, 0.85, 0.0)
+				rect.size = Vector2(32, 32)
+				node.add_child(rect)
+				
+				var lbl: Label = Label.new()
+				lbl.text = "⚡PART"
+				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				lbl.size = Vector2(32, 32)
+				lbl.add_theme_font_size_override("font_size", 9)
+				lbl.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+				node.add_child(lbl)
 			
 		"editBlock":
 			var rect: ColorRect = ColorRect.new()
@@ -454,17 +575,29 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			node.add_child(lbl)
 			
 		"exit":
-			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(0.7, 0.3, 0.9)
-			rect.size = Vector2(ew, eh)
-			node.add_child(rect)
-			
-			var lbl: Label = Label.new()
-			lbl.text = "EXIT"
-			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lbl.size = Vector2(ew, eh)
-			node.add_child(lbl)
-			
+			var tex: Texture2D = _try_load_texture(["res://assets/sprites/exit.png", "res://assets/sprites/warp.png"])
+			if tex:
+				var sp: Sprite2D = Sprite2D.new()
+				sp.texture = tex
+				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				node.add_child(sp)
+			else:
+				var glow: ColorRect = ColorRect.new()
+				glow.color = Color(0.7, 0.3, 0.9, 0.4)
+				glow.size = Vector2(ew + 8, eh + 8)
+				glow.position = Vector2(-4, -4)
+				node.add_child(glow)
+
+				var rect: ColorRect = ColorRect.new()
+				rect.color = Color(0.65, 0.2, 0.85)
+				rect.size = Vector2(ew, eh)
+				node.add_child(rect)
+				
+				var lbl: Label = Label.new()
+				lbl.text = "EXIT\nWARP"
+				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				lbl.size = Vector2(ew, eh)
 		_:
 			var rect: ColorRect = ColorRect.new()
 			rect.color = Color(0.5, 0.5, 0.5)
@@ -472,3 +605,61 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			node.add_child(rect)
 	
 	return node
+
+
+# ── SCREEN TRANSITIONS & OVERLAYS ───────────────────────────
+func _on_level_cleared(points: int) -> void:
+	var state: Dictionary = Game.get_state()
+	var lives: int = state.get("lives", 3)
+	GameProgress.unlock_next_level(_level_id, points)
+	
+	var clear_scene: PackedScene = load("res://src/scenes/level_clear.tscn")
+	if clear_scene:
+		var clear_node = clear_scene.instantiate()
+		clear_node.setup(_level_id, points, lives)
+		clear_node.next_level_requested.connect(_on_next_level_requested)
+		clear_node.replay_requested.connect(_on_replay_level)
+		clear_node.level_select_requested.connect(_on_return_to_level_select)
+		
+		var canvas: CanvasLayer = CanvasLayer.new()
+		canvas.layer = 25
+		canvas.add_child(clear_node)
+		add_child(canvas)
+
+
+func _on_game_over() -> void:
+	var over_scene: PackedScene = load("res://src/scenes/game_over.tscn")
+	if over_scene:
+		var over_node = over_scene.instantiate()
+		over_node.setup(_level_id)
+		over_node.retry_requested.connect(_on_replay_level)
+		over_node.level_select_requested.connect(_on_return_to_level_select)
+		over_node.main_menu_requested.connect(_on_return_to_main_menu)
+		
+		var canvas: CanvasLayer = CanvasLayer.new()
+		canvas.layer = 25
+		canvas.add_child(over_node)
+		add_child(canvas)
+
+
+func _on_next_level_requested() -> void:
+	if _level_id >= 4:
+		get_tree().change_scene_to_file("res://src/scenes/ending_screen.tscn")
+	else:
+		var next_id: int = _level_id + 1
+		GameProgress.selected_level = next_id
+		Game.load_level(next_id)
+		get_tree().change_scene_to_file("res://src/scenes/gameplay.tscn")
+
+
+func _on_replay_level() -> void:
+	Game.load_level(_level_id)
+	get_tree().change_scene_to_file("res://src/scenes/gameplay.tscn")
+
+
+func _on_return_to_level_select() -> void:
+	get_tree().change_scene_to_file("res://src/scenes/level_select.tscn")
+
+
+func _on_return_to_main_menu() -> void:
+	get_tree().change_scene_to_file("res://src/scenes/title_screen.tscn")
