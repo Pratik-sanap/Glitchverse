@@ -6,6 +6,7 @@ extends Node
 const ConfigScript = preload("res://src/logic/config.gd")
 const LevelLoaderScript = preload("res://src/logic/level_loader.gd")
 const GridSystemScript = preload("res://src/logic/grid_system.gd")
+const SyncSystemScript = preload("res://src/logic/sync_system.gd")
 
 signal state_changed(state: Dictionary)
 signal points_changed(new_points: int, delta: int)
@@ -175,11 +176,40 @@ func _handle_player_hit() -> void:
 		_state["status"] = "lost"
 		game_over.emit()
 
-func switch_world() -> bool:
-	# Dimension switching logic added in Step 4
+## Switches between Dimension A (Reality) and Dimension B (Source Layer).
+## Allowed when player stands on a portal tile 'O' or when force is true.
+func switch_world(force: bool = false) -> bool:
+	var player_pos: Vector2i = Vector2i(int(_state["player"]["x"]), int(_state["player"]["y"]))
+	var portals: Array = _current_level_data.get("portals", [])
+	var active_grid: Array = _world_a_grid if _state["world"] == "A" else _world_b_grid
+
+	if not force and not SyncSystemScript.is_on_portal(player_pos, portals, active_grid):
+		return false
+
 	_state["world"] = "B" if _state["world"] == "A" else "A"
 	state_changed.emit(_state)
 	return true
+
+## Synchronizes a Delete edit from Dimension B to its twin in Dimension A.
+func sync_delete(target_id: String) -> bool:
+	var ok: bool = SyncSystemScript.sync_delete(_state["objects"], target_id, _world_a_grid)
+	if ok:
+		state_changed.emit(_state)
+	return ok
+
+## Synchronizes a Move edit from Dimension B to its twin in Dimension A.
+func sync_move(target_id: String, new_pos: Vector2i) -> bool:
+	var ok: bool = SyncSystemScript.sync_move(_state["objects"], target_id, new_pos)
+	if ok:
+		state_changed.emit(_state)
+	return ok
+
+## Synchronizes a Duplicate edit from Dimension B to its twin in Dimension A.
+func sync_duplicate(target_id: String, new_pos: Vector2i) -> Dictionary:
+	var created: Dictionary = SyncSystemScript.sync_duplicate(_state["objects"], target_id, new_pos, _world_a_grid)
+	if not created.is_empty():
+		state_changed.emit(_state)
+	return created
 
 func use_skill(skill_name: String, target_id: String) -> bool:
 	# Skill validation and state mutation added in Step 5
@@ -193,7 +223,7 @@ func reset_level() -> void:
 		load_level(int(_state.get("level_id", 1)))
 
 func get_state() -> Dictionary:
-	return _state
+	return _state.duplicate(true)
 
 func get_current_level_data() -> Dictionary:
 	return _current_level_data
