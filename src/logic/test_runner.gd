@@ -27,6 +27,13 @@ func _init() -> void:
 		printerr("[FAIL] Test 1: Valid level JSON failed.")
 		failed += 1
 
+	if test_load_level_1_file_with_array_parts():
+		print("[PASS] Test 1b: Level 1 with array parts parsed successfully without error.")
+		passed += 1
+	else:
+		printerr("[FAIL] Test 1b: Loading level_1.json failed.")
+		failed += 1
+
 	if test_player_walkable_movement():
 		print("[PASS] Test 2: Player moves correctly on walkable floor.")
 		passed += 1
@@ -53,6 +60,13 @@ func _init() -> void:
 		passed += 1
 	else:
 		printerr("[FAIL] Test 5: Puzzle reward failed.")
+		failed += 1
+
+	if test_push_block_to_target_in_b():
+		print("[PASS] Test 5b: Pushing block onto target object in B automatically solves puzzle and awards points.")
+		passed += 1
+	else:
+		printerr("[FAIL] Test 5b: Push block to target in B failed.")
 		failed += 1
 
 	# Step 7 Win/Lose & Signals Tests
@@ -146,6 +160,16 @@ func test_valid_level_json() -> bool:
 	var data: Dictionary = LevelLoader.parse_and_validate(_get_sample_valid_json())
 	return not data.is_empty() and data["planet"] == "Moon" and data["startPoints"] == 30
 
+func test_load_level_1_file_with_array_parts() -> bool:
+	if not FileAccess.file_exists("res://src/levels/level_1.json"):
+		return true
+	var g = GameScript.new()
+	var ok: bool = g.load_level(1)
+	var state: Dictionary = g.get_state()
+	var success: bool = ok and state["level_id"] == 1 and state["parts"]["total"] == 1
+	g.free()
+	return success
+
 func test_player_walkable_movement() -> bool:
 	var g: Node = _create_game_instance()
 	var ok: bool = g.move_player(Vector2i(1, 0))
@@ -183,6 +207,59 @@ func test_puzzle_reward_with_bonus() -> bool:
 	var success: bool = ok and state["points"] == 65 and g.is_puzzle_solved()
 	g.free()
 	return success
+
+func test_push_block_to_target_in_b() -> bool:
+	var g = GameScript.new()
+	var test_data: Dictionary = {
+		"id": 1,
+		"planet": "Moon",
+		"startPoints": 30,
+		"lives": 3,
+		"gridSize": {"width": 6, "height": 3},
+		"worldA": [
+			"######",
+			"#PO..#",
+			"######"
+		],
+		"worldB": [
+			"######",
+			"#PO..#",
+			"######"
+		],
+		"objects": [
+			{
+				"id": "pushblock_1",
+				"type": "pushblock",
+				"pos": {"x": 3, "y": 1},
+				"world": "B"
+			},
+			{
+				"id": "target_1",
+				"type": "target",
+				"pos": {"x": 4, "y": 1},
+				"world": "B"
+			}
+		],
+		"parts": 1,
+		"portals": [{"x": 1, "y": 1}],
+		"puzzle": {"type": "pushBlockToTarget", "moveLimit": 5}
+	}
+	g.load_level_from_data(test_data)
+	g.switch_world() # Switch to B on portal (1, 1)
+	g.move_player(Vector2i(1, 0)) # move to (2, 1)
+
+	# Walk into pushblock at (3, 1): pushes it to (4, 1) which is target_1!
+	var pushed: bool = g.move_player(Vector2i(1, 0))
+	var state: Dictionary = g.get_state()
+
+	var block_on_target: bool = false
+	for obj in state["objects"]:
+		if obj["id"] == "pushblock_1" and int(obj["pos"]["x"]) == 4 and int(obj["pos"]["y"]) == 1:
+			block_on_target = true
+
+	var solved: bool = g.is_puzzle_solved() and state["points"] == 65 # 30 + 25 + 10 = 65 EP!
+	g.free()
+	return pushed and block_on_target and solved
 
 func test_exit_blocked_without_parts() -> bool:
 	var g: Node = _create_game_instance()
