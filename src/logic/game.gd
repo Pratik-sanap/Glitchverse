@@ -5,6 +5,7 @@ extends Node
 
 const ConfigScript = preload("res://src/logic/config.gd")
 const LevelLoaderScript = preload("res://src/logic/level_loader.gd")
+const GridSystemScript = preload("res://src/logic/grid_system.gd")
 
 signal state_changed(state: Dictionary)
 signal points_changed(new_points: int, delta: int)
@@ -12,8 +13,12 @@ signal player_died(lives_left: int, points_left: int)
 signal level_cleared(level_id: int, score_summary: Dictionary)
 signal game_over()
 
-# Loaded level definitions and grid configuration
+# Loaded level definitions and mutable grid rows
 var _current_level_data: Dictionary = {}
+var _world_a_grid: Array = []
+var _world_b_grid: Array = []
+var _respawn_pos: Vector2i = Vector2i(0, 0)
+var _has_shield: bool = false
 
 # Current game state dictionary adhering strictly to the contract
 var _state: Dictionary = {
@@ -50,12 +55,22 @@ func load_level_from_data(data: Dictionary) -> bool:
 		printerr("[Game] Level data failed schema validation.")
 		return false
 
-	_current_level_data = data
+	_current_level_data = data.duplicate(true)
+	_world_a_grid = (_current_level_data["worldA"] as Array).duplicate(true)
+	_world_b_grid = (_current_level_data["worldB"] as Array).duplicate(true)
+	_has_shield = false
 
-	var start_pos: Vector2i = LevelLoaderScript.find_player_start(data["worldA"])
+	var start_pos: Vector2i = LevelLoaderScript.find_player_start(_world_a_grid)
 	if start_pos == Vector2i(-1, -1):
 		printerr("[Game] Warning: No player start 'P' found in worldA, defaulting to (0, 0)")
 		start_pos = Vector2i(0, 0)
+
+	# Set respawn point: entry portal if present, else spawn 'P'
+	if _current_level_data.has("portals") and (_current_level_data["portals"] as Array).size() > 0:
+		var p0: Dictionary = _current_level_data["portals"][0]
+		_respawn_pos = Vector2i(int(p0.get("x", start_pos.x)), int(p0.get("y", start_pos.y)))
+	else:
+		_respawn_pos = start_pos
 
 	_state["level_id"] = int(data["id"])
 	_state["world"] = "A"
@@ -66,18 +81,99 @@ func load_level_from_data(data: Dictionary) -> bool:
 		"collected": 0,
 		"total": int(data.get("parts", 1))
 	}
-	_state["objects"] = (data.get("objects", []) as Array).duplicate(true)
+	_state["objects"] = (_current_level_data.get("objects", []) as Array).duplicate(true)
 	_state["moves"] = 0
 	_state["status"] = "playing"
 
 	state_changed.emit(_state)
 	return true
 
+## Moves the player one tile on the grid, handles collisions, hazards, and monster turns.
 func move_player(direction: Vector2i) -> bool:
-	# Detailed grid and hazard resolution added in Step 3
+	if _state.get("status", "") != "playing":
+		return false
+
+	var grid_size: Dictionary = _current_level_data.get("gridSize", {"width": 0, "height": 0})
+	var current_pos: Vector2i = Vector2i(int(_state["player"]["x"]), int(_state["player"]["y"]))
+	var target_pos: Vector2i = current_pos + direction
+
+	# 1. Bounds check
+	if not GridSystemScript.is_inside_grid(target_pos, grid_size):
+		return false
+
+	# 2. Wall check
+	var active_grid: Array = _world_a_grid if _state["world"] == "A" else _world_b_grid
+	var tile: String = GridSystemScript.get_tile_at(active_grid, target_pos)
+	if not GridSystemScript.is_tile_walkable(tile):
+		return false
+
+	# 3. Apply player move and increment turn counter
+	_state["player"]["x"] = target_pos.x
+	_state["player"]["y"] = target_pos.y
 	_state["moves"] += 1
+
+	# 4. Check pickups at player destination
+	_handle_pickups(target_pos, tile, active_grid)
+
+	# 5. Check hazard immediately upon stepping (spikes/gaps/stationary monsters)
+	if GridSystemScript.check_hazard_at(target_pos, tile, _state["objects"], _state["world"]):
+		_handle_player_hit()
+		state_changed.emit(_state)
+		return true
+
+	# 6. Monster turn: monsters advance one tile in Dimension A
+	if _state["world"] == "A":
+		GridSystemScript.advance_monsters(_state["objects"], _world_a_grid, grid_size)
+
+		# 7. Check if a monster moved into player's cell
+		var player_now: Vector2i = Vector2i(int(_state["player"]["x"]), int(_state["player"]["y"]))
+		var tile_now: String = GridSystemScript.get_tile_at(_world_a_grid, player_now)
+		if GridSystemScript.check_hazard_at(player_now, tile_now, _state["objects"], _state["world"]):
+			_handle_player_hit()
+
 	state_changed.emit(_state)
 	return true
+
+## Processes pickups: energy cells (+5 EP) and ship parts (+30 EP).
+func _handle_pickups(pos: Vector2i, tile: String, active_grid: Array) -> void:
+	if tile == "c":
+		# Energy Cell pickup
+		GridSystemScript.set_tile_at(active_grid, pos, ".")
+		_state["points"] += ConfigScript.REWARD_ENERGY_CELL
+		points_changed.emit(_state["points"], ConfigScript.REWARD_ENERGY_CELL)
+
+	elif tile == "F" and _state["world"] == "A":
+		# Ship Part pickup
+		GridSystemScript.set_tile_at(active_grid, pos, ".")
+		_state["parts"]["collected"] += 1
+		_state["points"] += ConfigScript.REWARD_SHIP_PART
+		points_changed.emit(_state["points"], ConfigScript.REWARD_SHIP_PART)
+
+## Handles hazard damage, shield absorption, life loss, and respawning.
+func _handle_player_hit() -> void:
+	if _has_shield:
+		# Shield blocks one hit and is consumed
+		_has_shield = false
+		print("[Game] Shield absorbed the hit!")
+		return
+
+	# Lose 1 life and 20 EP penalty (minimum 0)
+	_state["lives"] = maxi(0, int(_state["lives"]) - 1)
+	var prev_points: int = int(_state["points"])
+	_state["points"] = maxi(0, prev_points - ConfigScript.PENALTY_DEATH)
+	var delta: int = _state["points"] - prev_points
+
+	# Respawn at entry portal
+	_state["player"]["x"] = _respawn_pos.x
+	_state["player"]["y"] = _respawn_pos.y
+
+	player_died.emit(_state["lives"], _state["points"])
+	if delta != 0:
+		points_changed.emit(_state["points"], delta)
+
+	if _state["lives"] <= 0:
+		_state["status"] = "lost"
+		game_over.emit()
 
 func switch_world() -> bool:
 	# Dimension switching logic added in Step 4
@@ -101,3 +197,9 @@ func get_state() -> Dictionary:
 
 func get_current_level_data() -> Dictionary:
 	return _current_level_data
+
+func set_shield(active: bool) -> void:
+	_has_shield = active
+
+func has_shield() -> bool:
+	return _has_shield
