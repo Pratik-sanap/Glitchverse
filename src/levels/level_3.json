@@ -1,0 +1,54 @@
+{
+  "id": 3,
+  "planet": "Europa",
+  "startPoints": 30,
+  "lives": 3,
+  "levelSize": { "w": 3000, "h": 720 },
+  "spawn": { "x": 100, "y": 580 },
+  "gravity": 1600.0,
+
+  "platforms": [
+    { "x": 0,    "y": 680, "w": 600,  "h": 40 },
+    { "x": 900,  "y": 680, "w": 600,  "h": 40 },
+    { "x": 1600, "y": 680, "w": 1400, "h": 40 },
+    { "x": 1600, "y": 560, "w": 1400, "h": 32 },
+    { "x": 150,  "y": 440, "w": 200,  "h": 32 }
+  ],
+
+  "entities": [
+    { "id": "pit_a1",         "type": "pit",        "world": "A", "x": 600,  "y": 700, "w": 300, "h": 60 },
+
+    { "id": "wall_a1",        "type": "wall",       "world": "A", "x": 1500, "y": 480, "w": 64,  "h": 200, "twinId": "edit_wall_b1" },
+
+    { "id": "monster_a1",     "type": "monster",    "world": "A", "x": 1900, "y": 520, "twinId": "edit_monster_b1" },
+
+    { "id": "cell_a1",        "type": "energyCell", "world": "A", "x": 1000, "y": 640 },
+    { "id": "cell_a2",        "type": "energyCell", "world": "A", "x": 1800, "y": 640 },
+    { "id": "cell_a3",        "type": "energyCell", "world": "A", "x": 2400, "y": 520 },
+
+    { "id": "part_a1",        "type": "shipPart",   "world": "A", "x": 1100, "y": 640 },
+    { "id": "part_a2",        "type": "shipPart",   "world": "A", "x": 2600, "y": 520 },
+
+    { "id": "exit_a1",        "type": "exit",       "world": "A", "x": 2800, "y": 500, "w": 64, "h": 60 },
+
+    { "id": "bridge_a1",      "type": "wall",       "world": "A", "x": 600,  "y": 648, "w": 300, "h": 32, "twinId": "edit_bridge_b1" },
+
+    { "id": "edit_wall_b1",   "type": "editBlock",  "world": "B", "x": 1500, "y": 480, "w": 64,  "h": 200, "skill": "move",      "twinId": "wall_a1" },
+    { "id": "edit_bridge_b1", "type": "editBlock",  "world": "B", "x": 600,  "y": 648, "w": 300, "h": 32,  "skill": "duplicate", "twinId": "bridge_a1" },
+    { "id": "edit_monster_b1","type": "editBlock",  "world": "B", "x": 1900, "y": 520,            "skill": "delete",    "twinId": "monster_a1" },
+
+    { "id": "crate_b1",       "type": "crate",      "world": "B", "x": 200,  "y": 400 },
+    { "id": "plate_b1",       "type": "plate",      "world": "B", "x": 300,  "y": 408, "w": 48,  "h": 12 }
+  ],
+
+  "portals": [
+    { "x": 150, "y": 340, "w": 80, "h": 100 }
+  ],
+
+  "parts": 2,
+
+  "objective": {
+    "type": "push_block",
+    "timeLimit": 25
+  }
+}
