@@ -118,3 +118,11 @@ static func find_player_start(world_a: Array) -> Vector2i:
 		if x != -1:
 			return Vector2i(x, y)
 	return Vector2i(-1, -1)
+
+## Extracts the total required parts count, supporting both integer and array of part names.
+static func get_total_parts(parts_value: Variant) -> int:
+	if parts_value is Array:
+		return (parts_value as Array).size()
+	elif parts_value is int or parts_value is float:
+		return int(parts_value)
+	return 1

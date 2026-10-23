@@ -42,102 +42,6 @@ var _state: Dictionary = {
 
 func _ready() -> void:
 	print("[Game] Autoload initialized successfully.")
-	# Load a default sample level for interactive testing if level files aren't loaded yet
-	var default_sample: Dictionary = {
-		"id": 1,
-		"planet": "Moon",
-		"startPoints": ConfigScript.STARTING_POINTS,
-		"lives": ConfigScript.STARTING_LIVES,
-		"gridSize": {"width": 9, "height": 3},
-		"worldA": [
-			"#########",
-			"#POcS.FX#",
-			"#########"
-		],
-		"worldB": [
-			"#########",
-			"#POT....#",
-			"#########"
-		],
-		"objects": [
-			{
-				"id": "spike_1",
-				"type": "spike",
-				"pos": {"x": 4, "y": 1},
-				"world": "A",
-				"twinId": "block_1"
-			},
-			{
-				"id": "block_1",
-				"type": "block",
-				"pos": {"x": 4, "y": 1},
-				"world": "B",
-				"twinId": "spike_1"
-			}
-		],
-		"parts": 1,
-		"portals": [{"x": 2, "y": 1}],
-		"puzzle": {"type": "push_block", "moveLimit": 5, "targetPos": {"x": 3, "y": 1}}
-	}
-	load_level_from_data(default_sample)
-	print("[Game] Interactive Demo Level loaded! Use Arrow keys / WASD to move, Space on portal to switch dimension, 1 for Delete, 4 for Shield.")
-
-func _input(event: InputEvent) -> void:
-	if not (event is InputEventKey):
-		return
-	var key_event: InputEventKey = event as InputEventKey
-	if not key_event.pressed or key_event.echo:
-		return
-
-	# Handle Up
-	if key_event.is_action_pressed("move_up") or key_event.keycode == KEY_UP or key_event.keycode == KEY_W:
-		move_player(Vector2i(0, -1))
-		_print_debug_status("Moved UP")
-
-	# Handle Down
-	elif key_event.is_action_pressed("move_down") or key_event.keycode == KEY_DOWN or key_event.keycode == KEY_S:
-		move_player(Vector2i(0, 1))
-		_print_debug_status("Moved DOWN")
-
-	# Handle Left
-	elif key_event.is_action_pressed("move_left") or key_event.keycode == KEY_LEFT or key_event.keycode == KEY_A:
-		move_player(Vector2i(-1, 0))
-		_print_debug_status("Moved LEFT")
-
-	# Handle Right
-	elif key_event.is_action_pressed("move_right") or key_event.keycode == KEY_RIGHT or key_event.keycode == KEY_D:
-		move_player(Vector2i(1, 0))
-		_print_debug_status("Moved RIGHT")
-
-	# Handle Space / Switch World
-	elif key_event.is_action_pressed("switch_world") or key_event.keycode == KEY_SPACE:
-		var switched: bool = switch_world()
-		if switched:
-			_print_debug_status("Switched to World " + _state["world"])
-		else:
-			print("[Game] Cannot switch: Nova is not standing on a portal tile 'O'. Move right to (2, 1) first!")
-
-	# Handle 1: Delete
-	elif key_event.is_action_pressed("skill_1") or key_event.keycode == KEY_1:
-		var ok: bool = use_skill("delete", "block_1")
-		_print_debug_status("Delete block_1 (result: %s)" % str(ok))
-
-	# Handle 4: Shield
-	elif key_event.is_action_pressed("skill_4") or key_event.keycode == KEY_4:
-		var ok: bool = use_skill("shield", "")
-		_print_debug_status("Shield activated (result: %s)" % str(ok))
-
-func _print_debug_status(action_name: String) -> void:
-	print("[%s] Pos: (%d, %d) | World: %s | EP: %d | Lives: %d | Parts: %d/%d | Moves: %d | Status: %s" % [
-		action_name,
-		_state["player"]["x"], _state["player"]["y"],
-		_state["world"],
-		_state["points"],
-		_state["lives"],
-		_state["parts"]["collected"], _state["parts"]["total"],
-		_state["moves"],
-		_state["status"]
-	])
 
 ## Loads a level by ID from res://src/levels/level_<id>.json
 func load_level(id: int) -> bool:
@@ -180,7 +84,7 @@ func load_level_from_data(data: Dictionary) -> bool:
 	_state["lives"] = int(data.get("lives", ConfigScript.STARTING_LIVES))
 	_state["parts"] = {
 		"collected": 0,
-		"total": int(data.get("parts", 1))
+		"total": LevelLoaderScript.get_total_parts(data.get("parts", 1))
 	}
 	_state["objects"] = (_current_level_data.get("objects", []) as Array).duplicate(true)
 	_state["moves"] = 0
@@ -207,6 +111,36 @@ func move_player(direction: Vector2i) -> bool:
 	var tile: String = GridSystemScript.get_tile_at(active_grid, target_pos)
 	if not GridSystemScript.is_tile_walkable(tile):
 		return false
+
+	# 2.5 Pushing in Dimension B: walking into a pushblock moves it one tile if free
+	if _state["world"] == "B":
+		for obj in _state["objects"]:
+			if obj is Dictionary and not obj.get("deleted", false):
+				var obj_type: String = str(obj.get("type", "")).to_lower()
+				if obj_type in ["pushblock", "block", "crate"]:
+					var opos: Dictionary = obj.get("pos", {})
+					if int(opos.get("x", -1)) == target_pos.x and int(opos.get("y", -1)) == target_pos.y:
+						var block_next: Vector2i = target_pos + direction
+						# Check if push destination is inside grid and walkable
+						if not GridSystemScript.is_inside_grid(block_next, grid_size):
+							return false
+						var next_tile: String = GridSystemScript.get_tile_at(active_grid, block_next)
+						if not GridSystemScript.is_tile_walkable(next_tile):
+							return false
+						# Check if another solid object blocks it (targets are receptive)
+						for o2 in _state["objects"]:
+							if o2 is Dictionary and not o2.get("deleted", false) and o2 != obj:
+								var o2_type: String = str(o2.get("type", "")).to_lower()
+								if o2_type in ["pushblock", "block", "crate", "wall", "monster"]:
+									var o2pos: Dictionary = o2.get("pos", {})
+									if int(o2pos.get("x", -1)) == block_next.x and int(o2pos.get("y", -1)) == block_next.y:
+										return false
+						# Push the block
+						obj["pos"]["x"] = block_next.x
+						obj["pos"]["y"] = block_next.y
+						if obj.has("twinId") and obj["twinId"] != null:
+							SyncSystemScript.sync_move(_state["objects"], str(obj["id"]), block_next)
+						break
 
 	# 3. Apply player move and increment turn counter
 	_state["player"]["x"] = target_pos.x
@@ -237,6 +171,10 @@ func move_player(direction: Vector2i) -> bool:
 		var tile_now: String = GridSystemScript.get_tile_at(_world_a_grid, player_now)
 		if GridSystemScript.check_hazard_at(player_now, tile_now, _state["objects"], _state["world"]):
 			_handle_player_hit()
+
+	# 8. Check puzzle after every move in Dimension B
+	if _state["world"] == "B":
+		check_b_puzzle()
 
 	state_changed.emit(_state)
 	return true
