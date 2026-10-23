@@ -42,6 +42,102 @@ var _state: Dictionary = {
 
 func _ready() -> void:
 	print("[Game] Autoload initialized successfully.")
+	# Load a default sample level for interactive testing if level files aren't loaded yet
+	var default_sample: Dictionary = {
+		"id": 1,
+		"planet": "Moon",
+		"startPoints": ConfigScript.STARTING_POINTS,
+		"lives": ConfigScript.STARTING_LIVES,
+		"gridSize": {"width": 9, "height": 3},
+		"worldA": [
+			"#########",
+			"#POcS.FX#",
+			"#########"
+		],
+		"worldB": [
+			"#########",
+			"#POT....#",
+			"#########"
+		],
+		"objects": [
+			{
+				"id": "spike_1",
+				"type": "spike",
+				"pos": {"x": 4, "y": 1},
+				"world": "A",
+				"twinId": "block_1"
+			},
+			{
+				"id": "block_1",
+				"type": "block",
+				"pos": {"x": 4, "y": 1},
+				"world": "B",
+				"twinId": "spike_1"
+			}
+		],
+		"parts": 1,
+		"portals": [{"x": 2, "y": 1}],
+		"puzzle": {"type": "push_block", "moveLimit": 5, "targetPos": {"x": 3, "y": 1}}
+	}
+	load_level_from_data(default_sample)
+	print("[Game] Interactive Demo Level loaded! Use Arrow keys / WASD to move, Space on portal to switch dimension, 1 for Delete, 4 for Shield.")
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	var key_event: InputEventKey = event as InputEventKey
+	if not key_event.pressed or key_event.echo:
+		return
+
+	# Handle Up
+	if key_event.is_action_pressed("move_up") or key_event.keycode == KEY_UP or key_event.keycode == KEY_W:
+		move_player(Vector2i(0, -1))
+		_print_debug_status("Moved UP")
+
+	# Handle Down
+	elif key_event.is_action_pressed("move_down") or key_event.keycode == KEY_DOWN or key_event.keycode == KEY_S:
+		move_player(Vector2i(0, 1))
+		_print_debug_status("Moved DOWN")
+
+	# Handle Left
+	elif key_event.is_action_pressed("move_left") or key_event.keycode == KEY_LEFT or key_event.keycode == KEY_A:
+		move_player(Vector2i(-1, 0))
+		_print_debug_status("Moved LEFT")
+
+	# Handle Right
+	elif key_event.is_action_pressed("move_right") or key_event.keycode == KEY_RIGHT or key_event.keycode == KEY_D:
+		move_player(Vector2i(1, 0))
+		_print_debug_status("Moved RIGHT")
+
+	# Handle Space / Switch World
+	elif key_event.is_action_pressed("switch_world") or key_event.keycode == KEY_SPACE:
+		var switched: bool = switch_world()
+		if switched:
+			_print_debug_status("Switched to World " + _state["world"])
+		else:
+			print("[Game] Cannot switch: Nova is not standing on a portal tile 'O'. Move right to (2, 1) first!")
+
+	# Handle 1: Delete
+	elif key_event.is_action_pressed("skill_1") or key_event.keycode == KEY_1:
+		var ok: bool = use_skill("delete", "block_1")
+		_print_debug_status("Delete block_1 (result: %s)" % str(ok))
+
+	# Handle 4: Shield
+	elif key_event.is_action_pressed("skill_4") or key_event.keycode == KEY_4:
+		var ok: bool = use_skill("shield", "")
+		_print_debug_status("Shield activated (result: %s)" % str(ok))
+
+func _print_debug_status(action_name: String) -> void:
+	print("[%s] Pos: (%d, %d) | World: %s | EP: %d | Lives: %d | Parts: %d/%d | Moves: %d | Status: %s" % [
+		action_name,
+		_state["player"]["x"], _state["player"]["y"],
+		_state["world"],
+		_state["points"],
+		_state["lives"],
+		_state["parts"]["collected"], _state["parts"]["total"],
+		_state["moves"],
+		_state["status"]
+	])
 
 ## Loads a level by ID from res://src/levels/level_<id>.json
 func load_level(id: int) -> bool:

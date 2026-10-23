@@ -38,14 +38,15 @@ static func is_tile_walkable(tile: String) -> bool:
 	return tile != "#"
 
 ## Finds an object at specific grid coordinates in the active world.
-## In Dimension A, objects of matching type are active.
-static func get_object_at(objects: Array, pos: Vector2i, active_world: String) -> Dictionary:
+static func get_object_at(objects: Array, pos: Vector2i, active_world: String = "") -> Dictionary:
 	for obj in objects:
 		if not (obj is Dictionary):
 			continue
+		if active_world != "" and obj.has("world") and str(obj["world"]) != active_world:
+			continue
 		var obj_pos: Dictionary = obj.get("pos", {})
 		if int(obj_pos.get("x", -1)) == pos.x and int(obj_pos.get("y", -1)) == pos.y:
-			# Check if object is active in this world (default: active if not deleted)
+			# Check if object is active (not deleted)
 			if obj.get("deleted", false) == false:
 				return obj
 	return {}
