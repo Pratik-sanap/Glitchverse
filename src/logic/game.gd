@@ -7,6 +7,7 @@ const ConfigScript = preload("res://src/logic/config.gd")
 const LevelLoaderScript = preload("res://src/logic/level_loader.gd")
 const GridSystemScript = preload("res://src/logic/grid_system.gd")
 const SyncSystemScript = preload("res://src/logic/sync_system.gd")
+const SkillSystemScript = preload("res://src/logic/skill_system.gd")
 
 signal state_changed(state: Dictionary)
 signal points_changed(new_points: int, delta: int)
@@ -211,8 +212,36 @@ func sync_duplicate(target_id: String, new_pos: Vector2i) -> Dictionary:
 		state_changed.emit(_state)
 	return created
 
-func use_skill(skill_name: String, target_id: String) -> bool:
-	# Skill validation and state mutation added in Step 5
+## Executes a player skill (Delete, Duplicate, Move in B; Shield in A).
+## Costs and rewards are read from Config. Updates twin in alternate world.
+func use_skill(skill_name: String, target_id: String = "", extra_param: Variant = null) -> bool:
+	var res: Dictionary = SkillSystemScript.execute_skill(
+		skill_name,
+		target_id,
+		extra_param,
+		_state,
+		_world_a_grid
+	)
+
+	if not res.get("success", false):
+		return false
+
+	var cost: int = int(res.get("cost", 0))
+	var reward: int = int(res.get("reward", 0))
+
+	# Deduct cost
+	_state["points"] -= cost
+	points_changed.emit(_state["points"], -cost)
+
+	# Special effect: Shield
+	if skill_name.to_lower() == "shield":
+		_has_shield = true
+
+	# Clear obstacle reward
+	if reward > 0:
+		_state["points"] += reward
+		points_changed.emit(_state["points"], reward)
+
 	state_changed.emit(_state)
 	return true
 
