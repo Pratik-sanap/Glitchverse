@@ -1,0 +1,78 @@
+{
+  "id": 1,
+  "planet": "Moon",
+  "startPoints": 30,
+  "lives": 3,
+  "gridSize": [10, 7],
+  "worldA": [
+    "##########",
+    "#P..c.S.F#",
+    "#........#",
+    "####.#####",
+    "#........#",
+    "#O......X#",
+    "##########"
+  ],
+  "worldB": [
+    "##########",
+    "#O.......#",
+    "#........#",
+    "####.#####",
+    "#........#",
+    "#...B.T..#",
+    "##########"
+  ],
+  "objects": [
+    {
+      "id": "spike_1",
+      "type": "spike",
+      "pos": [6, 1],
+      "world": "A",
+      "twinId": "block_spike_1"
+    },
+    {
+      "id": "block_spike_1",
+      "type": "block",
+      "pos": [6, 1],
+      "world": "B",
+      "twinId": "spike_1"
+    },
+    {
+      "id": "pushblock_1",
+      "type": "pushblock",
+      "pos": [4, 5],
+      "world": "B",
+      "twinId": null
+    },
+    {
+      "id": "target_1",
+      "type": "target",
+      "pos": [6, 5],
+      "world": "B",
+      "twinId": null
+    },
+    {
+      "id": "energy_cell_1",
+      "type": "energy_cell",
+      "pos": [4, 1],
+      "world": "A",
+      "twinId": null
+    },
+    {
+      "id": "ship_part_1",
+      "type": "ship_part",
+      "pos": [8, 1],
+      "world": "A",
+      "twinId": null
+    }
+  ],
+  "parts": ["Fuel Cell"],
+  "portals": [
+    { "world": "A", "pos": [1, 5] },
+    { "world": "B", "pos": [1, 1] }
+  ],
+  "puzzle": {
+    "type": "push_to_target",
+    "moveLimit": 8
+  }
+}
