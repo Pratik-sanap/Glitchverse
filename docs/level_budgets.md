@@ -12,35 +12,36 @@ All values match `src/logic/config.gd`. Update this doc whenever a level changes
 X=0            X=600      X=1000       X=1600               X=2400
 ┌──────────────┐          ┌────────────┬────────────────────────┐
 │ SPAWN        │   PIT    │            │                        │
-│ ●            │  (gap)   │ [spike]    │                        │
-│ [portal↕]    │          │ ▲▲▲▲▲▲▲▲▲  │ [cell]  [part]  [EXIT] │
-│ [crate]      │          │ (360 wide) │                        │
-│ [plate] [cell│          │            │ ▓▓▓ raised shelf ▓▓▓▓▓ │
+│ ●            │  (gap)   │ [portal2↕] │                        │
+│ [portal1↕]   │          │ [spike]    │ [cell]  [part]  [EXIT] │
+│ [crate]      │          │ ▲▲▲▲▲▲▲▲▲  │                        │
+│ [plate] [cell│          │ (360 wide) │ ▓▓▓ raised shelf ▓▓▓▓▓ │
 │▓▓▓FLOOR▓▓▓▓▓▓│←  400 →  │▓▓▓FLOOR▓▓▓▓│▓▓▓▓▓▓ (h:140) ▓▓▓▓▓▓▓▓▓│
 └──────────────┴──────────┴────────────┴────────────────────────┘
 Y=680 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
 
-World B: editBlock-bridge over pit (duplicate, twin: pit_a1),
-         editBlock-spike on ground (delete, twin: spike_a1),
-         crate + plate for push_block objective on ground before portal.
+World A: pit (600-1000), portal 1 (x=220), portal 2 (x=1030), spike (x=1100), cells, part, exit.
+World B: crate + plate objective, editBlock-bridge over pit (duplicate), editBlock-spike (delete).
 ```
 
 ### Points Budget
 
-| Event                        | EP Change | Running Total |
-|------------------------------|-----------|---------------|
-| Start                        | +30       | 30            |
-| Energy cell #1 (upper plat)  | +5        | 35            |
-| Portal → B, complete push_block objective | +25 | 60    |
-| Time bonus (within 30 s)     | +10       | 70            |
-| Delete spike (skill in B)    | −15       | 55            |
-| Clear obstacle reward        | +10       | 65            |
-| Duplicate bridge (skill in B)| −20       | 45            |
-| Clear obstacle reward        | +10       | 55            |
-| Portal → A, cross bridge     | —         | 55            |
-| Energy cell #2               | +5        | 60            |
-| Collect ship part (Fuel Cell)| +30       | 90            |
-| Reach exit, 3 lives left     | +30       | 120           |
+| Event                                    | EP Change | Running Total |
+|------------------------------------------|-----------|---------------|
+| Start                                    | +30       | 30            |
+| Energy cell #1 (ground)                  | +5        | 35            |
+| Portal 1 → B, push_block objective       | +25       | 60            |
+| Time bonus (within 30 s)                 | +10       | 70            |
+| Duplicate bridge (skill in B)            | −20       | 50            |
+| Clear obstacle reward                    | +10       | 60            |
+| Portal 1 → A, cross bridge to x=1000     | —         | 60            |
+| Portal 2 → B                             | —         | 60            |
+| Delete spike (skill in B)                | −15       | 45            |
+| Clear obstacle reward                    | +10       | 55            |
+| Portal 2 → A, walk past cleared spikes   | —         | 55            |
+| Energy cell #2                           | +5        | 60            |
+| Collect ship part (Fuel Cell)            | +30       | 90            |
+| Reach exit, 3 lives left                 | +30       | 120           |
 
 **Minimum to finish (no deaths, no time bonus, skip 1 cell):**
 30 + 5 + 25 − 15 + 10 − 20 + 10 + 30 = **75 EP** (very generous)
@@ -192,6 +193,76 @@ B room (portal on upper-left ledge):
 - After 1 death: 40 − 20 + 15 + 60 + 20 = **115 EP**. ✓ Generous.
 - Death makes it *tighter* than Levels 1–2 because skill costs are higher (45 vs 35), but still very beatable.
 
-## Level 4 — Glitch Core
+## Level 4 — Glitch Core (Final)
 
-*(coming next)*
+### Side-View Sketch
+
+```
+X=0       X=600  X=1000  X=1600 X=1814 X=1964 X=2150 X=2450 X=2700      X=3200
+┌─────────┐      ┌───────┐▓door ┌──────┐      ┌──────┬──────┬─────────────────┐
+│SPAWN ●  │ PIT  │[p2↕]  │▓▓▓▓  │glitch│      │[plat]│      │                 │
+│[p1↕]    │(400) │MON1   │      │spikes│[p3↕] │spikes│ MON2 │                 │
+│[obj 1]  │      │[obj 2]│      │▲▲▲▲▲▲│      │▲▲▲▲▲▲│      │[part] [EXIT]    │
+│[cell 1] │      │[cell2]│      │      │      │      │      │▓▓▓ launch gate ▓│
+│▓▓FLOOR▓▓│←400→ │▓FLOOR▓│      │▓FLOOR│      │▓▓▓▓▓▓FLOOR▓▓│▓▓▓▓▓▓ (h:140) ▓▓│
+└─────────┴──────┴───────┴──────┴──────┴──────┴─────────────┴─────────────────┘
+Y=680 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓
+
+World A: Pit (600-1000), Mon 1 (x=1250), Door (x=1600), Glitch Spikes (x=1814),
+         Upper Plat (x=2100), Spikes 2 (x=2150), Mon 2 (x=2450), Crystal (x=2600), Exit (x=2950).
+World B: 2 Objectives (crates/plates at x=300 & x=1400),
+         Twins: bridge (duplicate), door (move), mon 1 (delete),
+                glitch spikes (delete), spikes 2 (delete), mon 2 (delete).
+```
+
+### Points Budget
+
+| Event                                       | EP Change | Running Total |
+|---------------------------------------------|-----------|---------------|
+| Start                                       | +30       | 30            |
+| Energy cell #1                              | +5        | 35            |
+| Portal 1 → B, complete Objective 1          | +25       | 60            |
+| Time bonus (within 25 s)                    | +10       | 70            |
+| Duplicate bridge over pit (skill in B)      | −20       | 50            |
+| Clear obstacle reward                       | +10       | 60            |
+| Portal 1 → A, cross bridge to Portal 2      | —         | 60            |
+| Portal 2 → B, complete Objective 2          | +25       | 85            |
+| Move locked door (skill in B)               | −10       | 75            |
+| Clear obstacle reward                       | +10       | 85            |
+| Energy cell #2                              | +5        | 90            |
+| **Decision Point**: Delete vs Bypass        |           |               |
+| *Choice: Bypass Mon 1, Delete Spikes 1*     | −15       | 75            |
+| Clear obstacle reward                       | +10       | 85            |
+| Cross glitch zone to Portal 3               | —         | 85            |
+| *Choice: Jump past Spikes 2 using upper plat*| 0        | 85            |
+| Energy cell #3                              | +5        | 90            |
+| *Choice: Jump past Mon 2 using timing*      | 0         | 90            |
+| Collect Ship Part (Core Crystal)            | +30       | 120           |
+| Reach launch gate, 3 lives left             | +30       | 150           |
+
+---
+
+### Solvability Check & The "Tight Points" Proof
+
+1. **Why using every skill is impossible (Forced Trade-offs):**
+   - Total skill cost if attempting to delete everything:
+     $\text{Duplicate Bridge } (20) + \text{Move Door } (10) + \text{Delete Mon 1 } (15) + \text{Delete Spikes 1 } (15) + \text{Delete Spikes 2 } (15) + \text{Delete Mon 2 } (15) = \mathbf{90\text{ EP}}$.
+   - Total EP obtainable before the mid-boss zone:
+     $30\text{ (start)} + 25\text{ (obj 1)} + 10\text{ (bonus)} + 5\text{ (cell 1)} + 25\text{ (obj 2)} = \mathbf{95\text{ EP}}$.
+   - If player spends 90 EP without completing both objectives first, their balance drops to 0, locking them out of mandatory skills (Bridge + Door).
+   - Therefore, the player **must decide** which obstacles to remove (Bridge + Door + 1 Spikes) and which to jump past (Monsters 1 & 2).
+
+2. **Solvability after 1 Death (−20 EP):**
+   - Start: 30
+   - Objective 1: +25 → 55
+   - Duplicate Bridge: −20 (+10) → 45
+   - Move Door: −10 (+10) → 45
+   - **Death on Monster 1**: −20 EP, 2 lives left → **25 EP**.
+   - Player respawns at Portal 2 with only 25 EP!
+   - They CANNOT afford to delete Monster 1 or Monster 2.
+   - Objective 2: +25 → 50 EP.
+   - They can afford to delete at most one hazard (Spikes 1: −15 + 10 → 45 EP).
+   - They must jump past both monsters and Spikes 2.
+   - Part +30, Cell 2 & 3 +10, Lives (2 × 10) +20 → **Finish at 105 EP**.
+   - **Result**: Level remains beatable after 1 death, but demands strict EP conservation and platforming precision. ✓
+
