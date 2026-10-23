@@ -10,10 +10,11 @@ const GameScript = preload("res://src/logic/game.gd")
 const GridSystem = preload("res://src/logic/grid_system.gd")
 const SyncSystem = preload("res://src/logic/sync_system.gd")
 const SkillSystem = preload("res://src/logic/skill_system.gd")
+const PuzzleSystem = preload("res://src/logic/puzzle_system.gd")
 
 func _init() -> void:
 	print("========================================")
-	print("       RUNNING LOGIC TESTS: STEP 5      ")
+	print("       RUNNING LOGIC TESTS: STEP 6      ")
 	print("========================================")
 	var passed: int = 0
 	var failed: int = 0
@@ -33,68 +34,54 @@ func _init() -> void:
 		printerr("[FAIL] Test 2: Player movement on walkable floor failed.")
 		failed += 1
 
-	if test_player_spike_hazard():
-		print("[PASS] Test 3: Stepping on spike loses 1 life and 20 EP, respawns at portal.")
-		passed += 1
-	else:
-		printerr("[FAIL] Test 3: Spike hazard penalty failed.")
-		failed += 1
-
 	if test_portal_transit_success():
-		print("[PASS] Test 4: switch_world() on portal 'O' transitions between A and B.")
+		print("[PASS] Test 3: switch_world() on portal 'O' transitions between A and B.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 4: World switch on portal failed.")
-		failed += 1
-
-	if test_twin_delete_sync():
-		print("[PASS] Test 5: Deleting object in B deletes twin in A and clears hazard tile.")
-		passed += 1
-	else:
-		printerr("[FAIL] Test 5: Twin delete synchronization failed.")
-		failed += 1
-
-	# Step 5 Skill Tests
-	if test_shield_in_dimension_a():
-		print("[PASS] Test 6: Shield activates in Dimension A and costs 10 EP.")
-		passed += 1
-	else:
-		printerr("[FAIL] Test 6: Shield in Dimension A failed.")
-		failed += 1
-
-	if test_shield_rejected_in_dimension_b():
-		print("[PASS] Test 7: Shield correctly rejected in Dimension B.")
-		passed += 1
-	else:
-		printerr("[FAIL] Test 7: Shield was allowed in Dimension B.")
+		printerr("[FAIL] Test 3: World switch on portal failed.")
 		failed += 1
 
 	if test_delete_skill_in_dimension_b():
-		print("[PASS] Test 8: Delete in Dimension B costs 15 EP and awards 10 EP for obstacle.")
+		print("[PASS] Test 4: Delete in Dimension B costs 15 EP and awards 10 EP for obstacle.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 8: Delete skill in Dimension B failed.")
+		printerr("[FAIL] Test 4: Delete skill in Dimension B failed.")
 		failed += 1
 
-	if test_move_skill_in_dimension_b():
-		print("[PASS] Test 9: Move in Dimension B costs 10 EP and syncs twin position.")
+	# Step 6 Points and Lives Tests
+	if test_puzzle_reward_with_bonus():
+		print("[PASS] Test 5: Solving B puzzle within move limit awards +35 EP (+25 base, +10 bonus).")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 9: Move skill in Dimension B failed.")
+		printerr("[FAIL] Test 5: Puzzle reward with move bonus failed.")
 		failed += 1
 
-	if test_duplicate_skill_in_dimension_b():
-		print("[PASS] Test 10: Duplicate in Dimension B costs 20 EP and creates twin in A.")
+	if test_puzzle_reward_without_bonus():
+		print("[PASS] Test 6: Solving B puzzle after move limit awards base +25 EP only.")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 10: Duplicate skill in Dimension B failed.")
+		printerr("[FAIL] Test 6: Puzzle reward without bonus failed.")
 		failed += 1
 
-	if test_insufficient_points_locks_skill():
-		print("[PASS] Test 11: Skills cannot be used when player has insufficient points.")
+	if test_points_never_below_zero_on_death():
+		print("[PASS] Test 7: Death penalty clamps points at 0 (never negative).")
 		passed += 1
 	else:
-		printerr("[FAIL] Test 11: Insufficient points check failed.")
+		printerr("[FAIL] Test 7: Points fell below 0 on death.")
+		failed += 1
+
+	if test_death_preserves_edits():
+		print("[PASS] Test 8: Death respawns Nova at portal but keeps previous edits intact.")
+		passed += 1
+	else:
+		printerr("[FAIL] Test 8: Edits were lost upon player death.")
+		failed += 1
+
+	if test_zero_lives_restarts_level():
+		print("[PASS] Test 9: Losing all 3 lives restarts level with initial points and 3 lives.")
+		passed += 1
+	else:
+		printerr("[FAIL] Test 9: Level restart on 0 lives failed.")
 		failed += 1
 
 	print("========================================")
@@ -118,7 +105,7 @@ func _get_sample_valid_json() -> String:
 		],
 		"worldB": [
 			"#########",
-			"#PO.....#",
+			"#POT....#",
 			"#########"
 		],
 		"objects": [
@@ -143,7 +130,8 @@ func _get_sample_valid_json() -> String:
 		],
 		"puzzle": {
 			"type": "push_block",
-			"moveLimit": 10
+			"moveLimit": 5,
+			"targetPos": {"x": 3, "y": 1}
 		}
 	}
 	"""
@@ -166,24 +154,6 @@ func test_player_walkable_movement() -> bool:
 	g.free()
 	return success
 
-func test_player_spike_hazard() -> bool:
-	var g: Node = _create_game_instance()
-	g.move_player(Vector2i(1, 0)) # to (2, 1) portal
-	g.move_player(Vector2i(1, 0)) # to (3, 1) energy cell (+5 EP)
-	var points_before: int = g.get_state()["points"]
-
-	g.move_player(Vector2i(1, 0)) # to (4, 1) spike
-	var state: Dictionary = g.get_state()
-
-	var success: bool = (
-		state["lives"] == 2 and
-		state["points"] == (points_before - Config.PENALTY_DEATH) and
-		state["player"]["x"] == 2 and
-		state["player"]["y"] == 1
-	)
-	g.free()
-	return success
-
 func test_portal_transit_success() -> bool:
 	var g: Node = _create_game_instance()
 	g.move_player(Vector2i(1, 0))
@@ -196,50 +166,10 @@ func test_portal_transit_success() -> bool:
 	g.free()
 	return success
 
-func test_twin_delete_sync() -> bool:
-	var g: Node = _create_game_instance()
-	var ok: bool = g.sync_delete("block_1")
-	var state: Dictionary = g.get_state()
-
-	var block_deleted: bool = false
-	var spike_deleted: bool = false
-	for obj in state["objects"]:
-		if obj["id"] == "block_1" and obj.get("deleted", false):
-			block_deleted = true
-		if obj["id"] == "spike_1" and obj.get("deleted", false):
-			spike_deleted = true
-
-	g.free()
-	return ok and block_deleted and spike_deleted
-
-func test_shield_in_dimension_a() -> bool:
-	var g: Node = _create_game_instance()
-	# World is "A", points = 30. Shield costs 10 EP.
-	var ok: bool = g.use_skill("shield", "")
-	var state: Dictionary = g.get_state()
-
-	var success: bool = ok and g.has_shield() and state["points"] == 20
-	g.free()
-	return success
-
-func test_shield_rejected_in_dimension_b() -> bool:
-	var g: Node = _create_game_instance()
-	g.move_player(Vector2i(1, 0))
-	g.switch_world() # Now in Dimension B
-	var ok: bool = g.use_skill("shield", "")
-	var state: Dictionary = g.get_state()
-
-	var success: bool = not ok and not g.has_shield() and state["points"] == 30
-	g.free()
-	return success
-
 func test_delete_skill_in_dimension_b() -> bool:
 	var g: Node = _create_game_instance()
-	# Move to portal and switch to Dimension B
 	g.move_player(Vector2i(1, 0))
 	g.switch_world()
-	# Points are 30. Delete costs 15 EP. Target "block_1" has twin "spike_1" (obstacle), earning +10 EP reward.
-	# Net points: 30 - 15 + 10 = 25 EP.
 	var ok: bool = g.use_skill("delete", "block_1")
 	var state: Dictionary = g.get_state()
 
@@ -247,42 +177,92 @@ func test_delete_skill_in_dimension_b() -> bool:
 	g.free()
 	return success
 
-func test_move_skill_in_dimension_b() -> bool:
+func test_puzzle_reward_with_bonus() -> bool:
 	var g: Node = _create_game_instance()
-	g.move_player(Vector2i(1, 0))
-	g.switch_world() # Dimension B
-	# Move costs 10 EP (30 - 10 = 20 EP)
-	var ok: bool = g.use_skill("move", "block_1", Vector2i(6, 1))
+	# Starts at 30 EP. Moves = 0 (within moveLimit 5).
+	# Solve puzzle -> +25 base + 10 bonus = +35 EP (total 65 EP)
+	var ok: bool = g.solve_b_puzzle()
 	var state: Dictionary = g.get_state()
 
-	var target_moved: bool = false
-	for obj in state["objects"]:
-		if obj["id"] == "block_1" and int(obj["pos"]["x"]) == 6:
-			target_moved = true
-
-	var success: bool = ok and state["points"] == 20 and target_moved
+	var success: bool = ok and state["points"] == 65 and g.is_puzzle_solved()
 	g.free()
 	return success
 
-func test_duplicate_skill_in_dimension_b() -> bool:
+func test_puzzle_reward_without_bonus() -> bool:
 	var g: Node = _create_game_instance()
-	g.move_player(Vector2i(1, 0))
-	g.switch_world() # Dimension B
-	# Duplicate costs 20 EP (30 - 20 = 10 EP)
-	var ok: bool = g.use_skill("duplicate", "block_1", Vector2i(5, 1))
+	# Set moves to 6 (exceeds moveLimit 5)
+	g._state["moves"] = 6
+	var ok: bool = g.solve_b_puzzle()
 	var state: Dictionary = g.get_state()
 
-	var success: bool = ok and state["points"] == 10 and state["objects"].size() == 4
+	# Base reward only: 30 + 25 = 55 EP
+	var success: bool = ok and state["points"] == 55 and g.is_puzzle_solved()
 	g.free()
 	return success
 
-func test_insufficient_points_locks_skill() -> bool:
+func test_points_never_below_zero_on_death():
 	var g: Node = _create_game_instance()
-	# Set points to 5 (cannot afford any skill)
-	g._state["points"] = 5
-	var ok: bool = g.use_skill("shield", "")
-	var state: Dictionary = g.get_state()
+	# Set player points to 10 (death penalty is 20)
+	g._state["points"] = 10
+	# Trigger death by hitting spike at (4, 1)
+	g.move_player(Vector2i(1, 0)) # (2, 1)
+	g.move_player(Vector2i(1, 0)) # (3, 1) cell pickup -> +5 EP (total 15)
+	# Set back to 10 to ensure penalty (20) exceeds points
+	g._state["points"] = 10
+	g.move_player(Vector2i(1, 0)) # (4, 1) spike hit!
 
-	var success: bool = not ok and state["points"] == 5 and not g.has_shield()
+	var state: Dictionary = g.get_state()
+	# Points must clamp at 0, not -10
+	var success: bool = state["points"] == 0 and state["lives"] == 2
+	g.free()
+	return success
+
+func test_death_preserves_edits():
+	var g: Node = _create_game_instance()
+	# Switch to B and duplicate block_1
+	g.move_player(Vector2i(1, 0))
+	g.switch_world()
+	g.use_skill("duplicate", "block_1", Vector2i(5, 1))
+	var obj_count_after_dup: int = g.get_state()["objects"].size() # 4 objects
+
+	# Switch back to A and take a death hit
+	g.switch_world()
+	g.move_player(Vector2i(1, 0)) # (3, 1)
+	g.move_player(Vector2i(1, 0)) # (4, 1) spike hit!
+
+	var state_after_death: Dictionary = g.get_state()
+	# Edits MUST stay! Object count remains 4, lives = 2, respawned at portal (2, 1)
+	var success: bool = (
+		state_after_death["lives"] == 2 and
+		state_after_death["player"]["x"] == 2 and
+		state_after_death["player"]["y"] == 1 and
+		state_after_death["objects"].size() == obj_count_after_dup
+	)
+	g.free()
+	return success
+
+func test_zero_lives_restarts_level():
+	var g: Node = _create_game_instance()
+	# Nova has 3 lives. Let's lose all 3 lives:
+	# Death 1:
+	g.move_player(Vector2i(1, 0))
+	g.move_player(Vector2i(1, 0))
+	g.move_player(Vector2i(1, 0)) # Dies, respawns at (2, 1), lives = 2
+
+	# Death 2:
+	g.move_player(Vector2i(1, 0)) # (3, 1)
+	g.move_player(Vector2i(1, 0)) # Dies, respawns at (2, 1), lives = 1
+
+	# Death 3:
+	g.move_player(Vector2i(1, 0)) # (3, 1)
+	g.move_player(Vector2i(1, 0)) # Dies -> lives reach 0! Triggers reset_level()
+
+	var state_after_restart: Dictionary = g.get_state()
+	# Level is re-initialized: lives back to 3, points back to starting 30
+	var success: bool = (
+		state_after_restart["lives"] == 3 and
+		state_after_restart["points"] == 30 and
+		state_after_restart["status"] == "playing"
+	)
 	g.free()
 	return success

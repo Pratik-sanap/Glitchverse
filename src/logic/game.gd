@@ -8,6 +8,7 @@ const LevelLoaderScript = preload("res://src/logic/level_loader.gd")
 const GridSystemScript = preload("res://src/logic/grid_system.gd")
 const SyncSystemScript = preload("res://src/logic/sync_system.gd")
 const SkillSystemScript = preload("res://src/logic/skill_system.gd")
+const PuzzleSystemScript = preload("res://src/logic/puzzle_system.gd")
 
 signal state_changed(state: Dictionary)
 signal points_changed(new_points: int, delta: int)
@@ -21,6 +22,7 @@ var _world_a_grid: Array = []
 var _world_b_grid: Array = []
 var _respawn_pos: Vector2i = Vector2i(0, 0)
 var _has_shield: bool = false
+var _puzzle_solved: bool = false
 
 # Current game state dictionary adhering strictly to the contract
 var _state: Dictionary = {
@@ -61,6 +63,7 @@ func load_level_from_data(data: Dictionary) -> bool:
 	_world_a_grid = (_current_level_data["worldA"] as Array).duplicate(true)
 	_world_b_grid = (_current_level_data["worldB"] as Array).duplicate(true)
 	_has_shield = false
+	_puzzle_solved = false
 
 	var start_pos: Vector2i = LevelLoaderScript.find_player_start(_world_a_grid)
 	if start_pos == Vector2i(-1, -1):
@@ -176,6 +179,7 @@ func _handle_player_hit() -> void:
 	if _state["lives"] <= 0:
 		_state["status"] = "lost"
 		game_over.emit()
+		reset_level()
 
 ## Switches between Dimension A (Reality) and Dimension B (Source Layer).
 ## Allowed when player stands on a portal tile 'O' or when force is true.
@@ -244,6 +248,34 @@ func use_skill(skill_name: String, target_id: String = "", extra_param: Variant 
 
 	state_changed.emit(_state)
 	return true
+
+## Checks if the Dimension B puzzle conditions are satisfied.
+func check_b_puzzle() -> bool:
+	if _puzzle_solved or _state["world"] != "B":
+		return false
+	var puzzle_data: Dictionary = _current_level_data.get("puzzle", {})
+	if PuzzleSystemScript.is_puzzle_condition_met(puzzle_data, _state["objects"], _world_b_grid):
+		return solve_b_puzzle()
+	return false
+
+## Solves the Dimension B puzzle, awarding +25 EP and +10 EP bonus if within move limit.
+func solve_b_puzzle() -> bool:
+	if _puzzle_solved:
+		return false
+
+	var puzzle_data: Dictionary = _current_level_data.get("puzzle", {})
+	var reward_info: Dictionary = PuzzleSystemScript.calculate_rewards(puzzle_data, int(_state["moves"]))
+	var total_reward: int = int(reward_info.get("total", ConfigScript.REWARD_PUZZLE_SOLVE))
+
+	_state["points"] += total_reward
+	_puzzle_solved = true
+
+	points_changed.emit(_state["points"], total_reward)
+	state_changed.emit(_state)
+	return true
+
+func is_puzzle_solved() -> bool:
+	return _puzzle_solved
 
 func reset_level() -> void:
 	if not _current_level_data.is_empty():
