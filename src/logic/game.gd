@@ -91,12 +91,145 @@ func jump(pressed: bool) -> void:
 	_jump_pressed = pressed
 
 func switch_world() -> void:
-	# Stub — will be filled in Step 4
-	push_warning("Game.switch_world() not yet implemented.")
+	if _state.is_empty() or _state.get("status","playing") != "playing":
+		return
 
-func use_skill(skill_name: String, target_id: String) -> void:
-	# Stub — will be filled in Step 5
-	push_warning("Game.use_skill(%s, %s) not yet implemented." % [skill_name, target_id])
+	# Rule: can only switch while standing inside a portal zone
+	var p: Dictionary = _state["player"]
+	if not _check_portal_zone(p):
+		return   # silently ignore — no warning spam while playing
+
+	# Toggle dimension
+	var new_world: String = "B" if _state["world"] == "A" else "A"
+	_state["world"] = new_world
+
+	# Update _last_spawn to this portal's centre so death respawns here
+	var portals: Array = _state.get("portals", [])
+	var pr: Dictionary = _player_rect(p)
+	for portal in portals:
+		if _rects_overlap(pr, portal):
+			_last_spawn = Vector2(
+				float(portal["x"]) + float(portal["w"]) * 0.5,
+				float(portal["y"]) + float(portal["h"])   # feet at bottom of portal
+			)
+			break
+
+	emit_signal("state_changed")
+
+
+
+func use_skill(skill_name: String, target_id: String = "") -> void:
+	if _state.is_empty() or _state.get("status", "playing") != "playing":
+		return
+
+	var current_world: String = _state.get("world", "A")
+
+	# World restrictions:
+	# delete, duplicate, move can ONLY be used in Dimension B
+	# shield can ONLY be used in Dimension A
+	if skill_name == "shield":
+		if current_world != "A":
+			return
+	else:
+		if current_world != "B":
+			return
+
+	# Cost check
+	var cost: int = 0
+	match skill_name:
+		"delete":    cost = Config.COST_DELETE
+		"duplicate": cost = Config.COST_DUPLICATE
+		"move":      cost = Config.COST_MOVE
+		"shield":    cost = Config.COST_SHIELD
+		_:           return
+
+	var pts: int = _state.get("points", 0)
+	if pts < cost:
+		return   # cannot afford skill
+
+	# Handle shield skill (affects Nova directly, no target entity needed)
+	if skill_name == "shield":
+		_state["points"] = pts - cost
+		_state["shielded"] = true
+		emit_signal("points_changed", _state["points"])
+		emit_signal("state_changed")
+		return
+
+	# Locate target entity in World B
+	var target: Dictionary = {}
+	if target_id.is_empty():
+		target = _find_nearest_skill_target(skill_name)
+	else:
+		target = _find_entity_by_id(target_id)
+
+	if target.is_empty():
+		return
+
+	# Target must be in current world and not already deleted
+	if target.get("world", "") != current_world:
+		return
+	if target.get("deleted", false):
+		return
+	if skill_name == "duplicate" and target.get("duplicated", false):
+		return
+
+	# Verify range to target
+	var p: Dictionary = _state.get("player", {})
+	if not _is_in_skill_range(p, target):
+		return
+
+	# Deduct cost
+	pts -= cost
+
+	# Apply skill effects
+	match skill_name:
+		"delete":
+			target["deleted"] = true
+			target["active"]  = false
+			_sync_twin(target)
+			pts += Config.REWARD_CLEAR_OBSTACLE
+
+		"duplicate":
+			target["duplicated"] = true
+			var twin_id: String = str(target.get("twinId", ""))
+			var twin: Dictionary = _find_entity_by_id(twin_id) if not twin_id.is_empty() else {}
+			if not twin.is_empty():
+				if twin.get("type", "") == "pit":
+					twin["deleted"] = true
+					twin["active"]  = false
+				elif twin.get("type", "") == "wall":
+					twin["active"]  = true
+					twin["deleted"] = false
+
+			# Ensure a solid wall platform exists in World A across the gap
+			var wall_id: String = "dup_wall_" + str(target.get("id", ""))
+			var existing_wall: Dictionary = _find_entity_by_id(wall_id)
+			if existing_wall.is_empty() and (twin.is_empty() or twin.get("type", "") != "wall"):
+				var bridge_wall: Dictionary = {
+					"id": wall_id,
+					"type": "wall",
+					"world": "A",
+					"x": target["x"],
+					"y": target["y"],
+					"w": target.get("w", 32),
+					"h": target.get("h", 32),
+					"active": true,
+					"deleted": false
+				}
+				_state["entities"].append(bridge_wall)
+
+			pts += Config.REWARD_CLEAR_OBSTACLE
+
+		"move":
+			# Shift obstacle upward / out of the way
+			var shift: float = float(target.get("h", 200.0))
+			target["y"] = float(target.get("y", 0.0)) - shift
+			_sync_twin(target)
+			pts += Config.REWARD_CLEAR_OBSTACLE
+
+	_state["points"] = pts
+	emit_signal("points_changed", pts)
+	emit_signal("state_changed")
 
 func reset_level() -> void:
 	# Stub — will be filled in Step 6
@@ -106,8 +239,108 @@ func get_state() -> Dictionary:
 	return _state.duplicate(true)
 
 # ─────────────────────────────────────────────────────────
+# PORTAL & TWIN HELPERS  (Step 4)
+# ─────────────────────────────────────────────────────────
+
+## Returns true if the player's AABB overlaps any portal zone rect.
+func _check_portal_zone(p: Dictionary) -> bool:
+	var pr: Dictionary = _player_rect(p)
+	for portal in _state.get("portals", []):
+		if _rects_overlap(pr, portal):
+			return true
+	return false
+
+
+## O(n) lookup — returns the entity Dictionary (by reference inside the Array)
+## or an empty dict if not found.
+func _find_entity_by_id(entity_id: String) -> Dictionary:
+	for ent in _state.get("entities", []):
+		if str(ent.get("id", "")) == entity_id:
+			return ent
+	return {}
+
+
+## Called by skills after editing a B-world entity.
+## Mirrors the B entity's active/deleted/position onto its A twin.
+## Only copies the fields that skills can change (deleted, active, x, y).
+func _sync_twin(b_entity: Dictionary) -> void:
+	var twin_id: String = str(b_entity.get("twinId", ""))
+	if twin_id.is_empty():
+		return
+	var twin: Dictionary = _find_entity_by_id(twin_id)
+	if twin.is_empty():
+		return
+
+	# Mirror deletion
+	twin["deleted"] = b_entity.get("deleted", false)
+	twin["active"]  = not twin["deleted"]
+
+	# Mirror position (used by Move skill in Step 5)
+	twin["x"] = b_entity.get("x", twin.get("x", 0.0))
+	twin["y"] = b_entity.get("y", twin.get("y", 0.0))
+
+
+# ─────────────────────────────────────────────────────────
+# SKILL HELPERS  (Step 5)
+# ─────────────────────────────────────────────────────────
+
+## Returns true if the entity's AABB or center is within Config.SKILL_RANGE of the player.
+func _is_in_skill_range(p: Dictionary, ent: Dictionary) -> bool:
+	var px: float = float(p.get("x", 0.0))
+	var py: float = float(p.get("y", 0.0)) - Config.PLAYER_HEIGHT * 0.5
+	var ex: float = float(ent.get("x", 0.0)) + float(ent.get("w", 32.0)) * 0.5
+	var ey: float = float(ent.get("y", 0.0)) + float(ent.get("h", 32.0)) * 0.5
+
+	# Euclidean distance between player center and entity center
+	var dist: float = Vector2(px, py).distance_to(Vector2(ex, ey))
+	if dist <= Config.SKILL_RANGE:
+		return true
+
+	# Generous check: also check distance from player feet/center to entity bounding box
+	var ew: float = float(ent.get("w", 32.0))
+	var eh: float = float(ent.get("h", 32.0))
+	var nearest_x: float = clampf(px, float(ent.get("x", 0.0)), float(ent.get("x", 0.0)) + ew)
+	var nearest_y: float = clampf(py, float(ent.get("y", 0.0)), float(ent.get("y", 0.0)) + eh)
+	return Vector2(px, py).distance_to(Vector2(nearest_x, nearest_y)) <= Config.SKILL_RANGE
+
+
+## Finds the nearest active editBlock matching skill_name in World B within range.
+func _find_nearest_skill_target(skill_name: String) -> Dictionary:
+	var p: Dictionary = _state.get("player", {})
+	if p.is_empty():
+		return {}
+
+	var best_ent: Dictionary = {}
+	var min_dist: float = Config.SKILL_RANGE + 9999.0
+	var px: float = float(p.get("x", 0.0))
+	var py: float = float(p.get("y", 0.0)) - Config.PLAYER_HEIGHT * 0.5
+
+	for ent in _state.get("entities", []):
+		if ent.get("world", "") != "B":
+			continue
+		if ent.get("deleted", false) or not ent.get("active", true):
+			continue
+		if ent.get("type", "") != "editBlock":
+			continue
+		if skill_name != "" and ent.get("skill", "") != skill_name:
+			continue
+
+		if _is_in_skill_range(p, ent):
+			var ex: float = float(ent.get("x", 0.0)) + float(ent.get("w", 32.0)) * 0.5
+			var ey: float = float(ent.get("y", 0.0)) + float(ent.get("h", 32.0)) * 0.5
+			var dist: float = Vector2(px, py).distance_to(Vector2(ex, ey))
+			if dist < min_dist:
+				min_dist = dist
+				best_ent = ent
+
+	return best_ent
+
+
+
+# ─────────────────────────────────────────────────────────
 # PHYSICS
 # ─────────────────────────────────────────────────────────
+
 
 func _physics_process(delta: float) -> void:
 	if _state.is_empty():
@@ -288,6 +521,10 @@ func _check_hazards(p: Dictionary) -> void:
 			"w": float(ent.get("w", 32)), "h": float(ent.get("h", 32))
 		}
 		if _rects_overlap(pr, er):
+			if _state.get("shielded", false):
+				_state["shielded"] = false
+				emit_signal("state_changed")
+				return
 			_kill_player()
 			return  # one death per frame is enough
 

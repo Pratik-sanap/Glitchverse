@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://d3xportaltest"]
+
+[ext_resource type="Script" path="res://src/logic/test_portal_twin.gd" id="1_test"]
+
+[node name="TestPortalTwin" type="Node"]
+script = ExtResource("1_test")
