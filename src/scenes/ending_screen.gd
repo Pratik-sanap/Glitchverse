@@ -125,6 +125,15 @@ func _build_ui() -> void:
 	btn_title.pressed.connect(func(): get_tree().change_scene_to_file("res://src/scenes/title_screen.tscn"))
 	btn_box.add_child(btn_title)
 
+	if FileAccess.file_exists("res://assets/video/credits.ogv"):
+		var btn_credits: Button = Button.new()
+		btn_credits.text = "🎬 CREDITS VIDEO"
+		btn_credits.custom_minimum_size = Vector2(160, 44)
+		btn_credits.pressed.connect(func():
+			VideoPlayerScene.play_video(get_tree(), "res://assets/video/credits.ogv", "res://src/scenes/ending_screen.tscn")
+		)
+		btn_box.add_child(btn_credits)
+
 
 func _add_score_row(grid: GridContainer, label: String, val: String, col: Color = Color.WHITE) -> void:
 	var l: Label = Label.new()

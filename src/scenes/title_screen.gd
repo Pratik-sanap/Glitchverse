@@ -101,6 +101,11 @@ func _build_ui() -> void:
 	btn_select.pressed.connect(_on_level_select_pressed)
 	btn_box.add_child(btn_select)
 
+	if FileAccess.file_exists("res://assets/video/intro.ogv"):
+		var btn_intro: Button = _create_styled_btn("🎬  WATCH INTRO", Color(0.9, 0.7, 0.2))
+		btn_intro.pressed.connect(_on_watch_intro_pressed)
+		btn_box.add_child(btn_intro)
+
 	var btn_how: Button = _create_styled_btn("📖  HOW TO PLAY", Color(0.3, 0.85, 0.5))
 	btn_how.pressed.connect(_on_how_to_play_pressed)
 	btn_box.add_child(btn_how)
@@ -235,7 +240,15 @@ func _add_ctrl_row(grid: GridContainer, key: String, action: String) -> void:
 func _on_play_pressed() -> void:
 	# Launch current selected level
 	Game.load_level(GameProgress.selected_level)
-	get_tree().change_scene_to_file("res://src/scenes/gameplay.tscn")
+	if FileAccess.file_exists("res://assets/video/intro.ogv") and not GameProgress.intro_shown:
+		GameProgress.intro_shown = true
+		VideoPlayerScene.play_video(get_tree(), "res://assets/video/intro.ogv", "res://src/scenes/gameplay.tscn")
+	else:
+		get_tree().change_scene_to_file("res://src/scenes/gameplay.tscn")
+
+
+func _on_watch_intro_pressed() -> void:
+	VideoPlayerScene.play_video(get_tree(), "res://assets/video/intro.ogv", "res://src/scenes/title_screen.tscn")
 
 
 func _on_level_select_pressed() -> void:
