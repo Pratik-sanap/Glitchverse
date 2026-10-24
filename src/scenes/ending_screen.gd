@@ -2,9 +2,6 @@
 ## Role C owns this file. No game rules logic here.
 extends Control
 
-const GameProgress = preload("res://src/scenes/game_progress.gd")
-
-
 func _ready() -> void:
 	GameProgress.load_progress()
 	_build_ui()
