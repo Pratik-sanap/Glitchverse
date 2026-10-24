@@ -3,8 +3,6 @@
 ## Reads level geometry from JSON and synchronizes visuals with Game state.
 extends Node2D
 
-const GameProgress = preload("res://src/scenes/game_progress.gd")
-
 # ── References & Containers ─────────────────────────────────
 var _level_data: Dictionary = {}
 var _level_id: int = 1
@@ -18,9 +16,19 @@ var _entities_a_container: Node2D
 var _entities_b_container: Node2D
 var _player_node: Node2D
 var _player_visual: Node2D
+var _player_sprite: Sprite2D
+var _player_velocity_x: float = 0.0
+var _player_on_ground: bool = false
+var _player_animation_time: float = 0.0
 var _camera: Camera2D
 var _bg_rect_a: TextureRect
 var _bg_rect_b: TextureRect
+
+const PLAYER_SPRITE_PATH: String = "res://assets/sprites/Firefly.png"
+const PLAYER_SHEET_COLUMNS: int = 4
+const PLAYER_SHEET_ROWS: int = 7
+const PLAYER_WALK_ROW: int = 2
+const PLAYER_WALK_FPS: float = 10.0
 
 # Entity ID -> Node2D lookup for fast positional updates
 var _entity_nodes: Dictionary = {}
@@ -67,8 +75,23 @@ func _ready() -> void:
 	_on_state_changed()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_update_player_animation(delta)
 	_feed_input_to_game()
+
+
+func _update_player_animation(delta: float) -> void:
+	if _player_sprite == null:
+		return
+
+	var frame_index: int = 0
+	if _player_on_ground and absf(_player_velocity_x) > 10.0:
+		_player_animation_time += delta
+		frame_index = int(_player_animation_time * PLAYER_WALK_FPS) % PLAYER_SHEET_COLUMNS
+	else:
+		_player_animation_time = 0.0
+
+	_player_sprite.frame_coords = Vector2i(frame_index, PLAYER_WALK_ROW)
 
 
 # ── INPUT FEEDING ───────────────────────────────────────────
@@ -150,6 +173,8 @@ func _on_state_changed() -> void:
 		var px: float = p.get("x", _spawn_pos.x)
 		var py: float = p.get("y", _spawn_pos.y)
 		_player_node.position = Vector2(px, py)
+		_player_velocity_x = float(p.get("vx", 0.0))
+		_player_on_ground = bool(p.get("on_ground", false))
 		
 		var facing: float = p.get("facing", 1.0)
 		if facing != 0.0:
@@ -433,6 +458,21 @@ func _populate_level_geometry() -> void:
 func _create_player_visual() -> Node2D:
 	var visual: Node2D = Node2D.new()
 	visual.name = "Visual"
+	
+	if ResourceLoader.exists(PLAYER_SPRITE_PATH):
+		var sprite_texture: Texture2D = load(PLAYER_SPRITE_PATH) as Texture2D
+		if sprite_texture:
+			_player_sprite = Sprite2D.new()
+			_player_sprite.name = "Astronaut"
+			_player_sprite.texture = sprite_texture
+			_player_sprite.hframes = PLAYER_SHEET_COLUMNS
+			_player_sprite.vframes = PLAYER_SHEET_ROWS
+			_player_sprite.frame_coords = Vector2i(0, PLAYER_WALK_ROW)
+			_player_sprite.position = Vector2(0, -36)
+			_player_sprite.scale = Vector2(0.3, 0.3)
+			_player_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			visual.add_child(_player_sprite)
+			return visual
 	
 	var pw: float = Config.PLAYER_WIDTH
 	var ph: float = Config.PLAYER_HEIGHT
