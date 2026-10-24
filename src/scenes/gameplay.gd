@@ -700,7 +700,10 @@ func _on_game_over() -> void:
 
 func _on_next_level_requested() -> void:
 	if _level_id >= 4:
-		get_tree().change_scene_to_file("res://src/scenes/ending_screen.tscn")
+		if FileAccess.file_exists("res://assets/video/credits.ogv"):
+			VideoPlayerScene.play_video(get_tree(), "res://assets/video/credits.ogv", "res://src/scenes/ending_screen.tscn")
+		else:
+			get_tree().change_scene_to_file("res://src/scenes/ending_screen.tscn")
 	else:
 		var next_id: int = _level_id + 1
 		GameProgress.selected_level = next_id

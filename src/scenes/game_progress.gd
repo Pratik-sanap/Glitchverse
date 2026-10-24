@@ -9,6 +9,7 @@ static var unlocked_level: int = 1
 static var selected_level: int = 1
 static var total_campaign_score: int = 0
 static var level_scores: Dictionary = {1: 0, 2: 0, 3: 0, 4: 0}
+static var intro_shown: bool = false
 
 
 static func unlock_next_level(current_id: int, score: int = 0) -> void:
