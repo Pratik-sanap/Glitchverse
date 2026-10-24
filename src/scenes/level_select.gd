@@ -11,7 +11,8 @@ const PLANETS: Array[Dictionary] = [
 		"desc": "Lunar Outpost\nTutorial & Basics",
 		"parts": 1,
 		"color": Color(0.65, 0.72, 0.85),
-		"bg_accent": Color(0.12, 0.16, 0.24)
+		"bg_accent": Color(0.12, 0.16, 0.24),
+		"sprite": "res://assets/art/bg/Pixel-Art Cratered Moon Sprite.png"
 	},
 	{
 		"id": 2,
@@ -19,7 +20,8 @@ const PLANETS: Array[Dictionary] = [
 		"desc": "Crimson Dunes\nWide Pits & Heavy Walls",
 		"parts": 1,
 		"color": Color(1.0, 0.38, 0.25),
-		"bg_accent": Color(0.24, 0.08, 0.08)
+		"bg_accent": Color(0.24, 0.08, 0.08),
+		"sprite": "res://assets/art/bg/Pixel-Art Mars Sprite.png"
 	},
 	{
 		"id": 3,
@@ -27,7 +29,8 @@ const PLANETS: Array[Dictionary] = [
 		"desc": "Frozen Depths\nDouble Spikes & Monster Rift",
 		"parts": 2,
 		"color": Color(0.2, 0.9, 1.0),
-		"bg_accent": Color(0.06, 0.18, 0.24)
+		"bg_accent": Color(0.06, 0.18, 0.24),
+		"sprite": "res://assets/art/bg/Pixel Art Europa Ice Moon.png"
 	},
 	{
 		"id": 4,
@@ -35,7 +38,8 @@ const PLANETS: Array[Dictionary] = [
 		"desc": "Source Dimension\nFinal Core Synchronization",
 		"parts": 2,
 		"color": Color(0.85, 0.3, 1.0),
-		"bg_accent": Color(0.2, 0.06, 0.25)
+		"bg_accent": Color(0.2, 0.06, 0.25),
+		"sprite": "res://assets/art/bg/Glitched Neon Energy Planet.png"
 	}
 ]
 
@@ -148,15 +152,26 @@ func _create_planet_card(info: Dictionary) -> PanelContainer:
 	name_lbl.add_theme_font_size_override("font_size", 24)
 	vbox.add_child(name_lbl)
 
-	# Planet Visual Orb
+	# Planet Visual Sprite / Orb
 	var orb_center: CenterContainer = CenterContainer.new()
 	orb_center.custom_minimum_size = Vector2(0, 100)
 	vbox.add_child(orb_center)
 
-	var orb: ColorRect = ColorRect.new()
-	orb.custom_minimum_size = Vector2(64, 64)
-	orb.color = accent if unlocked else Color(0.25, 0.28, 0.35)
-	orb_center.add_child(orb)
+	var sprite_path: String = String(info.get("sprite", ""))
+	if sprite_path != "" and ResourceLoader.exists(sprite_path):
+		var planet_rect: TextureRect = TextureRect.new()
+		planet_rect.custom_minimum_size = Vector2(88, 88)
+		planet_rect.texture = load(sprite_path)
+		planet_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		planet_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		if not unlocked:
+			planet_rect.modulate = Color(0.35, 0.35, 0.38, 0.5)
+		orb_center.add_child(planet_rect)
+	else:
+		var orb: ColorRect = ColorRect.new()
+		orb.custom_minimum_size = Vector2(64, 64)
+		orb.color = accent if unlocked else Color(0.25, 0.28, 0.35)
+		orb_center.add_child(orb)
 
 	# Description
 	var desc_lbl: Label = Label.new()
