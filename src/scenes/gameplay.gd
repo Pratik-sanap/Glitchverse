@@ -493,6 +493,25 @@ func _populate_level_geometry() -> void:
 			_entities_b_container.add_child(ent_node)
 		else:
 			_entities_a_container.add_child(ent_node)
+
+		# If this entity is a duplicate bridge block in B, pre-register the World A bridge wall node!
+		if ent.get("type", "") == "editBlock" and str(ent.get("skill", "")) == "duplicate":
+			var dup_wall_id: String = "dup_wall_" + eid
+			var bridge_dict: Dictionary = {
+				"id": dup_wall_id,
+				"type": "wall",
+				"world": "A",
+				"x": ent.get("x", 0),
+				"y": ent.get("y", 0),
+				"w": ent.get("w", 32),
+				"h": ent.get("h", 32),
+				"active": false,
+				"deleted": true
+			}
+			var bridge_node: Node2D = _create_entity_visual(bridge_dict)
+			bridge_node.visible = false
+			_entity_nodes[dup_wall_id] = bridge_node
+			_entities_a_container.add_child(bridge_node)
 	
 	_apply_world_appearance()
 
@@ -643,13 +662,8 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 				lbl.size = Vector2(ew, eh)
 				lbl.add_theme_font_size_override("font_size", 12)
-				lbl.add_theme_color_override("font_color", Color(0.85, 1.0, 1.0))
+				lbl.add_theme_color_override("font_color", Color(0.9, 1.0, 1.0))
 				node.add_child(lbl)
-
-				# 6. Subtle pulse animation
-				var tween: Tween = node.create_tween().set_loops()
-				tween.tween_property(glow, "color:a", 0.45, 0.8)
-				tween.tween_property(glow, "color:a", 0.15, 0.8)
 			else:
 				var tex: Texture2D = _try_load_texture(["res://assets/sprites/wall.png", "res://assets/sprites/block.png"])
 				if tex:
