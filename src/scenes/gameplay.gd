@@ -403,7 +403,13 @@ func _populate_level_geometry() -> void:
 			_platforms_container.add_child(plat_rect)
 	
 	# 2. Portals
-	var portal_tex: Texture2D = _try_load_texture(["res://assets/sprites/portal.png", "res://assets/sprites/rift.png"])
+	var portal_tex: Texture2D = _try_load_texture([
+		"res://assets/sprites/rift.png",
+		"res://assets/sprites/rift.jpeg",
+		"res://assets/sprites/rift.jpg",
+		"res://assets/sprites/portal.png",
+		"res://assets/sprites/dimensional_rift.png"
+	])
 	var portals: Array = _level_data.get("portals", [])
 	for p in portals:
 		if not (p is Dictionary):
@@ -420,6 +426,10 @@ func _populate_level_geometry() -> void:
 		if portal_tex:
 			var sp: Sprite2D = Sprite2D.new()
 			sp.texture = portal_tex
+			var tsize: Vector2 = portal_tex.get_size()
+			if tsize.x > 0 and tsize.y > 0 and (tsize.x > pw or tsize.y > ph):
+				var s: float = minf(float(pw) / tsize.x, float(ph) / tsize.y)
+				sp.scale = Vector2(s, s)
 			sp.position = Vector2(pw * 0.5, ph * 0.5)
 			portal_node.add_child(sp)
 		else:
@@ -513,6 +523,10 @@ func _try_load_texture(paths: Array[String]) -> Texture2D:
 	for p in paths:
 		if ResourceLoader.exists(p):
 			return load(p) as Texture2D
+		elif FileAccess.file_exists(p):
+			var img: Image = Image.load_from_file(ProjectSettings.globalize_path(p))
+			if img:
+				return ImageTexture.create_from_image(img)
 	return null
 
 
@@ -571,10 +585,21 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 				node.add_child(rect)
 			
 		"monster":
-			var tex: Texture2D = _try_load_texture(["res://assets/sprites/monster.png", "res://assets/sprites/alien.png"])
+			var tex: Texture2D = _try_load_texture([
+				"res://assets/sprites/monster.png",
+				"res://assets/sprites/monster.jpg",
+				"res://assets/sprites/monster.jpeg",
+				"res://assets/sprites/Firefly.png",
+				"res://assets/sprites/firefly.png",
+				"res://assets/sprites/alien.png"
+			])
 			if tex:
 				var sp: Sprite2D = Sprite2D.new()
 				sp.texture = tex
+				var tsize: Vector2 = tex.get_size()
+				if tsize.x > 0 and tsize.y > 0 and (tsize.x > ew or tsize.y > eh):
+					var s: float = minf(float(ew) / tsize.x, float(eh) / tsize.y)
+					sp.scale = Vector2(s, s)
 				sp.position = Vector2(ew * 0.5, eh * 0.5)
 				node.add_child(sp)
 			else:
@@ -622,10 +647,20 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 				node.add_child(rect)
 			
 		"energyCell":
-			var tex: Texture2D = _try_load_texture(["res://assets/sprites/energy_cell.png", "res://assets/sprites/cell.png"])
+			var tex: Texture2D = _try_load_texture([
+				"res://assets/sprites/oxygen_cylinder.png",
+				"res://assets/sprites/oxygen.png",
+				"res://assets/sprites/cylinder.png",
+				"res://assets/sprites/energy_cell.png",
+				"res://assets/sprites/cell.png"
+			])
 			if tex:
 				var sp: Sprite2D = Sprite2D.new()
 				sp.texture = tex
+				var tsize: Vector2 = tex.get_size()
+				if tsize.x > 0 and tsize.y > 0 and (tsize.x > 32 or tsize.y > 32):
+					var s: float = minf(28.0 / tsize.x, 28.0 / tsize.y)
+					sp.scale = Vector2(s, s)
 				sp.position = Vector2(12, 12)
 				node.add_child(sp)
 			else:
@@ -691,10 +726,19 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			node.add_child(lbl)
 			
 		"exit":
-			var tex: Texture2D = _try_load_texture(["res://assets/sprites/exit.png", "res://assets/sprites/warp.png"])
+			var tex: Texture2D = _try_load_texture([
+				"res://assets/sprites/spaceship.png",
+				"res://assets/sprites/ship.png",
+				"res://assets/sprites/exit.png",
+				"res://assets/sprites/warp.png"
+			])
 			if tex:
 				var sp: Sprite2D = Sprite2D.new()
 				sp.texture = tex
+				var tsize: Vector2 = tex.get_size()
+				if tsize.x > 0 and tsize.y > 0 and (tsize.x > ew or tsize.y > eh):
+					var s: float = minf(float(ew) / tsize.x, float(eh) / tsize.y)
+					sp.scale = Vector2(s, s)
 				sp.position = Vector2(ew * 0.5, eh * 0.5)
 				node.add_child(sp)
 			else:
