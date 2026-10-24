@@ -25,6 +25,9 @@ var _bg_rect_b: TextureRect
 # Entity ID -> Node2D lookup for fast positional updates
 var _entity_nodes: Dictionary = {}
 
+# Audio
+var _audio_mgr: Node
+
 
 func _ready() -> void:
 	# Check if Game already has an active level ID, or read from GameProgress
@@ -41,6 +44,13 @@ func _ready() -> void:
 	var hud_scene: PackedScene = load("res://src/ui/hud.tscn")
 	if hud_scene:
 		add_child(hud_scene.instantiate())
+
+	# Attach Audio Manager
+	var audio_script: GDScript = load("res://src/scenes/audio_manager.gd")
+	if audio_script:
+		_audio_mgr = audio_script.new()
+		_audio_mgr.name = "AudioManager"
+		add_child(_audio_mgr)
 	
 	# Connect to logic signals
 	if not Game.state_changed.is_connected(_on_state_changed):
@@ -70,6 +80,8 @@ func _feed_input_to_game() -> void:
 	# 2. Jump
 	if Input.is_action_just_pressed("jump"):
 		Game.jump(true)
+		if _audio_mgr:
+			_audio_mgr.play_jump()
 	elif Input.is_action_just_released("jump"):
 		Game.jump(false)
 	
@@ -81,14 +93,22 @@ func _feed_input_to_game() -> void:
 	if Input.is_action_just_pressed("skill_1"):
 		var target: String = _find_nearest_target("delete")
 		Game.use_skill("delete", target)
+		if _audio_mgr:
+			_audio_mgr.play_skill()
 	elif Input.is_action_just_pressed("skill_2"):
 		var target: String = _find_nearest_target("duplicate")
 		Game.use_skill("duplicate", target)
+		if _audio_mgr:
+			_audio_mgr.play_skill()
 	elif Input.is_action_just_pressed("skill_3"):
 		var target: String = _find_nearest_target("move")
 		Game.use_skill("move", target)
+		if _audio_mgr:
+			_audio_mgr.play_skill()
 	elif Input.is_action_just_pressed("skill_4"):
 		Game.use_skill("shield", "")
+		if _audio_mgr:
+			_audio_mgr.play_skill()
 
 
 func _find_nearest_target(skill_name: String) -> String:
