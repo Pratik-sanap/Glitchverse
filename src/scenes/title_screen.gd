@@ -2,8 +2,6 @@
 ## Role C owns this file. No game rules logic here.
 extends Control
 
-const GameProgress = preload("res://src/scenes/game_progress.gd")
-
 var _controls_modal: PanelContainer
 
 
@@ -19,14 +17,17 @@ func _build_ui() -> void:
 	var bg: ColorRect = ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.color = Color(0.04, 0.05, 0.09, 1.0)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
 	# Decorative starfield grid
 	var grid: Control = Control.new()
 	grid.set_anchors_preset(Control.PRESET_FULL_RECT)
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.add_child(grid)
 	for i in range(40):
 		var star: ColorRect = ColorRect.new()
+		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		star.color = Color(0.4, 0.7, 1.0, randf_range(0.2, 0.8))
 		star.size = Vector2(randf_range(1, 3), randf_range(1, 3))
 		star.position = Vector2(randf_range(20, 1260), randf_range(20, 700))
@@ -38,6 +39,7 @@ func _build_ui() -> void:
 		var bg_tex: TextureRect = TextureRect.new()
 		bg_tex.texture = load(bg_art_path)
 		bg_tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+		bg_tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bg_tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		bg_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		bg.add_child(bg_tex)
@@ -45,10 +47,12 @@ func _build_ui() -> void:
 	# 2. Main Centered Content (Uses CenterContainer to guarantee within 1280x720 frame)
 	var center_root: CenterContainer = CenterContainer.new()
 	center_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center_root.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(center_root)
 
 	var center: VBoxContainer = VBoxContainer.new()
 	center.alignment = BoxContainer.ALIGNMENT_CENTER
+	center.mouse_filter = Control.MOUSE_FILTER_PASS
 	center.add_theme_constant_override("separation", 16)
 	center_root.add_child(center)
 
@@ -90,6 +94,7 @@ func _build_ui() -> void:
 	# Buttons Container
 	var btn_box: VBoxContainer = VBoxContainer.new()
 	btn_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_box.mouse_filter = Control.MOUSE_FILTER_PASS
 	btn_box.add_theme_constant_override("separation", 14)
 	center.add_child(btn_box)
 
@@ -100,6 +105,11 @@ func _build_ui() -> void:
 	var btn_select: Button = _create_styled_btn("🌌  PLANET SELECT", Color(0.7, 0.4, 1.0))
 	btn_select.pressed.connect(_on_level_select_pressed)
 	btn_box.add_child(btn_select)
+
+	if FileAccess.file_exists("res://assets/video/intro.ogv"):
+		var btn_intro: Button = _create_styled_btn("🎬  WATCH INTRO", Color(0.9, 0.7, 0.2))
+		btn_intro.pressed.connect(_on_watch_intro_pressed)
+		btn_box.add_child(btn_intro)
 
 	var btn_how: Button = _create_styled_btn("📖  HOW TO PLAY", Color(0.3, 0.85, 0.5))
 	btn_how.pressed.connect(_on_how_to_play_pressed)
@@ -235,7 +245,15 @@ func _add_ctrl_row(grid: GridContainer, key: String, action: String) -> void:
 func _on_play_pressed() -> void:
 	# Launch current selected level
 	Game.load_level(GameProgress.selected_level)
-	get_tree().change_scene_to_file("res://src/scenes/gameplay.tscn")
+	if FileAccess.file_exists("res://assets/video/intro.ogv") and not GameProgress.intro_shown:
+		GameProgress.intro_shown = true
+		VideoPlayerScene.play_video(get_tree(), "res://assets/video/intro.ogv", "res://src/scenes/gameplay.tscn")
+	else:
+		get_tree().change_scene_to_file("res://src/scenes/gameplay.tscn")
+
+
+func _on_watch_intro_pressed() -> void:
+	VideoPlayerScene.play_video(get_tree(), "res://assets/video/intro.ogv", "res://src/scenes/title_screen.tscn")
 
 
 func _on_level_select_pressed() -> void:
