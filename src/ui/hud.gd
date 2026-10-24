@@ -3,6 +3,8 @@
 ## Displays points, lives, ship parts, planet name, skill bar and floating score changes.
 extends CanvasLayer
 
+signal pause_requested
+
 # ── Tunable Colors & Styling ────────────────────────────────
 const COLOR_EP_GAIN: Color = Color(0.1, 1.0, 0.45, 1.0) # Bright neon green
 const COLOR_EP_LOSS: Color = Color(1.0, 0.25, 0.35, 1.0) # Danger neon red
@@ -121,6 +123,41 @@ func _build_ui() -> void:
 		heart.add_theme_color_override("font_color", COLOR_HEART_ACTIVE)
 		_lives_container.add_child(heart)
 		_life_icons.append(heart)
+	
+	# 5. Pause / Menu Button
+	var btn_pause: Button = Button.new()
+	btn_pause.text = "⏸ MENU"
+	btn_pause.custom_minimum_size = Vector2(90, 30)
+	btn_pause.focus_mode = Control.FOCUS_NONE
+	btn_pause.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn_pause.add_theme_font_size_override("font_size", 12)
+	btn_pause.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+	btn_pause.add_theme_color_override("font_hover_color", Color(0.1, 1.0, 0.7))
+	
+	var pause_btn_style: StyleBoxFlat = StyleBoxFlat.new()
+	pause_btn_style.bg_color = Color(0.12, 0.16, 0.25, 0.95)
+	pause_btn_style.border_width_left = 1
+	pause_btn_style.border_width_right = 1
+	pause_btn_style.border_width_top = 1
+	pause_btn_style.border_width_bottom = 1
+	pause_btn_style.border_color = Color(0.0, 0.85, 1.0, 0.6)
+	pause_btn_style.corner_radius_top_left = 4
+	pause_btn_style.corner_radius_top_right = 4
+	pause_btn_style.corner_radius_bottom_left = 4
+	pause_btn_style.corner_radius_bottom_right = 4
+	pause_btn_style.content_margin_left = 10
+	pause_btn_style.content_margin_right = 10
+	pause_btn_style.content_margin_top = 4
+	pause_btn_style.content_margin_bottom = 4
+	btn_pause.add_theme_stylebox_override("normal", pause_btn_style)
+	
+	var pause_hover_style: StyleBoxFlat = pause_btn_style.duplicate()
+	pause_hover_style.bg_color = Color(0.18, 0.25, 0.38, 0.95)
+	pause_hover_style.border_color = Color(0.1, 1.0, 0.7, 0.9)
+	btn_pause.add_theme_stylebox_override("hover", pause_hover_style)
+	
+	btn_pause.pressed.connect(func(): emit_signal("pause_requested"))
+	top_box.add_child(btn_pause)
 	
 	# ── Floating Numbers Container ──────────────────────────
 	_float_container = Control.new()

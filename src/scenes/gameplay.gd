@@ -28,6 +28,10 @@ var _entity_nodes: Dictionary = {}
 # Audio
 var _audio_mgr: Node
 
+# In-Game Pause Menu
+var _pause_menu: Node = null
+var _pause_canvas: CanvasLayer = null
+
 
 func _ready() -> void:
 	# Check if Game already has an active level ID, or read from GameProgress
@@ -43,7 +47,10 @@ func _ready() -> void:
 	# Attach HUD overlay
 	var hud_scene: PackedScene = load("res://src/ui/hud.tscn")
 	if hud_scene:
-		add_child(hud_scene.instantiate())
+		var hud_node: Node = hud_scene.instantiate()
+		if hud_node.has_signal("pause_requested"):
+			hud_node.pause_requested.connect(_on_pause_requested)
+		add_child(hud_node)
 
 	# Attach Audio Manager
 	var audio_script: GDScript = load("res://src/scenes/audio_manager.gd")
@@ -69,6 +76,13 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	_feed_input_to_game()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.is_pressed() and not event.is_echo():
+		if event.physical_keycode == KEY_ESCAPE or event.physical_keycode == KEY_P:
+			_toggle_pause()
+			get_viewport().set_input_as_handled()
 
 
 # ── INPUT FEEDING ───────────────────────────────────────────
@@ -719,6 +733,7 @@ func _on_game_over() -> void:
 
 
 func _on_next_level_requested() -> void:
+	get_tree().paused = false
 	if _level_id >= 4:
 		get_tree().change_scene_to_file("res://src/scenes/ending_screen.tscn")
 	else:
@@ -729,13 +744,69 @@ func _on_next_level_requested() -> void:
 
 
 func _on_replay_level() -> void:
+	get_tree().paused = false
 	Game.load_level(_level_id)
 	get_tree().change_scene_to_file("res://src/scenes/gameplay.tscn")
 
 
+func _on_jump_to_level(target_level_id: int) -> void:
+	get_tree().paused = false
+	GameProgress.selected_level = target_level_id
+	Game.load_level(target_level_id)
+	get_tree().change_scene_to_file("res://src/scenes/gameplay.tscn")
+
+
 func _on_return_to_level_select() -> void:
+	get_tree().paused = false
 	get_tree().change_scene_to_file("res://src/scenes/level_select.tscn")
 
 
 func _on_return_to_main_menu() -> void:
+	get_tree().paused = false
 	get_tree().change_scene_to_file("res://src/scenes/title_screen.tscn")
+
+
+# ── PAUSE MENU CONTROLLER ───────────────────────────────────
+func _on_pause_requested() -> void:
+	_toggle_pause()
+
+
+func _toggle_pause() -> void:
+	if get_tree().paused:
+		_resume_game()
+	else:
+		_pause_game()
+
+
+func _pause_game() -> void:
+	var state: Dictionary = Game.get_state()
+	if state.get("status", "playing") != "playing":
+		return
+
+	get_tree().paused = true
+
+	if _pause_menu == null:
+		var pause_scene: PackedScene = load("res://src/scenes/pause_menu.tscn")
+		if pause_scene:
+			_pause_menu = pause_scene.instantiate()
+			_pause_menu.setup(_level_id)
+			_pause_menu.resume_requested.connect(_resume_game)
+			_pause_menu.restart_requested.connect(_on_replay_level)
+			_pause_menu.level_selected.connect(_on_jump_to_level)
+			_pause_menu.level_select_screen_requested.connect(_on_return_to_level_select)
+			_pause_menu.main_menu_requested.connect(_on_return_to_main_menu)
+
+			_pause_canvas = CanvasLayer.new()
+			_pause_canvas.layer = 30
+			_pause_canvas.process_mode = Node.PROCESS_MODE_ALWAYS
+			_pause_canvas.add_child(_pause_menu)
+			add_child(_pause_canvas)
+	else:
+		_pause_menu.setup(_level_id)
+		_pause_canvas.visible = true
+
+
+func _resume_game() -> void:
+	get_tree().paused = false
+	if _pause_canvas:
+		_pause_canvas.visible = false
