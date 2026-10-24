@@ -19,6 +19,8 @@ var _entities_b_container: Node2D
 var _player_node: Node2D
 var _player_visual: Node2D
 var _camera: Camera2D
+var _bg_rect_a: TextureRect
+var _bg_rect_b: TextureRect
 
 # Entity ID -> Node2D lookup for fast positional updates
 var _entity_nodes: Dictionary = {}
@@ -162,6 +164,11 @@ func _apply_world_appearance() -> void:
 	# World A entities visible in Reality, World B in Source Layer
 	_entities_a_container.visible = (_current_world == "A")
 	_entities_b_container.visible = (_current_world == "B")
+	
+	if _bg_rect_a:
+		_bg_rect_a.visible = (_current_world == "A")
+	if _bg_rect_b:
+		_bg_rect_b.visible = (_current_world == "B")
 
 
 # ── LEVEL LOADING & GENERATION ──────────────────────────────
@@ -206,17 +213,66 @@ func _build_scene_hierarchy() -> void:
 
 	# Dynamic background art from teammate if available
 	var planet_name: String = str(_level_data.get("planet", "Moon")).to_lower().replace(" ", "_")
-	var bg_tex: Texture2D = _try_load_texture([
-		"res://assets/sprites/bg_%s.png" % planet_name,
-		"res://assets/sprites/bg_level_%d.png" % _level_id,
-		"res://assets/sprites/background.png"
-	])
-	if bg_tex:
-		var bg_rect: TextureRect = TextureRect.new()
-		bg_rect.texture = bg_tex
-		bg_rect.size = Vector2(lw, lh)
-		bg_rect.stretch_mode = TextureRect.STRETCH_TILE
-		_world_root.add_child(bg_rect)
+	var is_moon: bool = (_level_id == 1 or planet_name == "moon")
+	var is_mars: bool = (_level_id == 2 or planet_name == "mars")
+	var is_europa: bool = (_level_id == 3 or planet_name == "europa")
+	var is_glitch_core: bool = (_level_id == 4 or "glitch" in planet_name)
+	
+	# Dimension A background (Reality)
+	var bg_paths_a: Array[String] = []
+	if is_moon:
+		bg_paths_a.append("res://assets/art/bg/Cratered Moonset Over Alien Wasteland.png")
+	elif is_mars:
+		bg_paths_a.append("res://assets/art/bg/Crimson Planet Over Alien Canyon.png")
+	elif is_europa:
+		bg_paths_a.append("res://assets/art/bg/level3.png")
+		bg_paths_a.append("res://assets/art/bg/level_3.png")
+	elif is_glitch_core:
+		bg_paths_a.append("res://assets/art/bg/Level4.png")
+		bg_paths_a.append("res://assets/art/bg/level4.png")
+		bg_paths_a.append("res://assets/art/bg/level_4.png")
+	bg_paths_a.append("res://assets/art/bg/bg_%s_a.png" % planet_name)
+	bg_paths_a.append("res://assets/art/bg/bg_%s.png" % planet_name)
+	bg_paths_a.append("res://assets/sprites/bg_%s.png" % planet_name)
+	bg_paths_a.append("res://assets/sprites/bg_level_%d.png" % _level_id)
+	bg_paths_a.append("res://assets/sprites/background.png")
+	
+	var bg_tex_a: Texture2D = _try_load_texture(bg_paths_a)
+	if bg_tex_a:
+		_bg_rect_a = TextureRect.new()
+		_bg_rect_a.name = "BackgroundA"
+		_bg_rect_a.texture = bg_tex_a
+		_bg_rect_a.size = Vector2(lw, lh)
+		_bg_rect_a.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_bg_rect_a.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		_world_root.add_child(_bg_rect_a)
+	
+	# Dimension B background (Source Layer / Glitchscape)
+	var bg_paths_b: Array[String] = []
+	if is_moon:
+		bg_paths_b.append("res://assets/art/bg/Cosmic Glitchscape_ Fractured Moon Horizon.png")
+	elif is_mars:
+		bg_paths_b.append("res://assets/art/bg/Glitched Mars Dimension at Sunset.png")
+	elif is_europa:
+		bg_paths_b.append("res://assets/art/bg/glitchedLevel3.png")
+		bg_paths_b.append("res://assets/art/bg/glitched_level_3.png")
+	elif is_glitch_core:
+		bg_paths_b.append("res://assets/art/bg/glitchedLevel4.png")
+		bg_paths_b.append("res://assets/art/bg/glitched_level_4.png")
+	bg_paths_b.append("res://assets/art/bg/bg_%s_b.png" % planet_name)
+	bg_paths_b.append("res://assets/sprites/bg_%s_b.png" % planet_name)
+	bg_paths_b.append("res://assets/sprites/bg_glitch.png")
+	
+	var bg_tex_b: Texture2D = _try_load_texture(bg_paths_b)
+	if bg_tex_b:
+		_bg_rect_b = TextureRect.new()
+		_bg_rect_b.name = "BackgroundB"
+		_bg_rect_b.texture = bg_tex_b
+		_bg_rect_b.size = Vector2(lw, lh)
+		_bg_rect_b.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_bg_rect_b.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		_bg_rect_b.visible = false
+		_world_root.add_child(_bg_rect_b)
 	
 	# Containers
 	_platforms_container = Node2D.new()
