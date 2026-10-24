@@ -165,8 +165,13 @@ func _find_nearest_target(skill_name: String) -> String:
 		if _current_world == "B" and ent_dict.get("type", "") == "editBlock":
 			var target_skill: String = ent_dict.get("skill", "")
 			if target_skill == skill_name:
-				var ent_pos: Vector2 = Vector2(ent_dict.get("x", 0.0), ent_dict.get("y", 0.0))
-				var dist: float = player_pos.distance_to(ent_pos)
+				var ex: float = float(ent_dict.get("x", 0.0))
+				var ey: float = float(ent_dict.get("y", 0.0))
+				var ew: float = float(ent_dict.get("w", 32.0))
+				var eh: float = float(ent_dict.get("h", 32.0))
+				var closest_x: float = clampf(player_pos.x, ex, ex + ew)
+				var closest_y: float = clampf(player_pos.y, ey, ey + eh)
+				var dist: float = player_pos.distance_to(Vector2(closest_x, closest_y))
 				if dist <= nearest_dist:
 					nearest_dist = dist
 					nearest_id = str(ent_dict.get("id", ""))
@@ -201,7 +206,7 @@ func _on_state_changed() -> void:
 			_current_world = new_world
 			_apply_world_appearance()
 	
-	# 3. Update dynamic entity states (e.g. collected items, removed blocks)
+	# 3. Update dynamic entity states (e.g. collected items, removed blocks, dynamically created bridges)
 	if state.has("entities"):
 		var state_entities: Array = state["entities"]
 		for ent in state_entities:
@@ -209,14 +214,37 @@ func _on_state_changed() -> void:
 				continue
 			var ent_dict: Dictionary = ent
 			var eid: String = str(ent_dict.get("id", ""))
-			if _entity_nodes.has(eid):
-				var node: Node2D = _entity_nodes[eid]
-				# Position update if moved
-				if ent_dict.has("x") and ent_dict.has("y"):
-					node.position = Vector2(ent_dict["x"], ent_dict["y"])
-				# Visibility based on deleted/collected status
-				var is_inactive: bool = ent_dict.get("collected", false) or ent_dict.get("deleted", false)
-				node.visible = (not is_inactive) and (ent_dict.get("world", "A") == _current_world)
+			
+			# Create visual node if it was dynamically spawned in logic (e.g. duplicate bridge wall)
+			if not _entity_nodes.has(eid):
+				var new_node: Node2D = _create_entity_visual(ent_dict)
+				_entity_nodes[eid] = new_node
+				if ent_dict.get("world", "A") == "B":
+					_entities_b_container.add_child(new_node)
+				else:
+					_entities_a_container.add_child(new_node)
+			
+			var node: Node2D = _entity_nodes[eid]
+			# Position update if moved
+			if ent_dict.has("x") and ent_dict.has("y"):
+				node.position = Vector2(ent_dict["x"], ent_dict["y"])
+				
+			# Visibility based on deleted/collected status
+			var is_inactive: bool = ent_dict.get("collected", false) or ent_dict.get("deleted", false)
+			node.visible = (not is_inactive) and (ent_dict.get("world", "A") == _current_world)
+			
+			# Dynamic visual updates (e.g. editBlock becoming duplicated)
+			if ent_dict.get("type", "") == "editBlock" and ent_dict.get("duplicated", false):
+				var bg_rect: ColorRect = node.get_node_or_null("Background")
+				if bg_rect:
+					bg_rect.color = Color(0.06, 0.38, 0.2, 0.9)
+				var border_top: ColorRect = node.get_node_or_null("BorderTop")
+				if border_top:
+					border_top.color = Color(0.1, 1.0, 0.6, 1.0)
+				var elbl: Label = node.get_node_or_null("Label")
+				if elbl:
+					elbl.text = "✓ BRIDGE DUPLICATED — ACTIVE IN REALITY [A]"
+					elbl.add_theme_color_override("font_color", Color(0.5, 1.0, 0.75))
 
 
 func _apply_world_appearance() -> void:
@@ -532,7 +560,8 @@ func _try_load_texture(paths: Array[String]) -> Texture2D:
 
 func _create_entity_visual(ent: Dictionary) -> Node2D:
 	var node: Node2D = Node2D.new()
-	node.name = str(ent.get("id", "entity"))
+	var eid: String = str(ent.get("id", "entity"))
+	node.name = eid
 	node.position = Vector2(float(ent.get("x", 0)), float(ent.get("y", 0)))
 	
 	var etype: String = str(ent.get("type", ""))
@@ -572,17 +601,67 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			node.add_child(lbl)
 			
 		"wall":
-			var tex: Texture2D = _try_load_texture(["res://assets/sprites/wall.png", "res://assets/sprites/block.png"])
-			if tex:
-				var sp: Sprite2D = Sprite2D.new()
-				sp.texture = tex
-				sp.position = Vector2(ew * 0.5, eh * 0.5)
-				node.add_child(sp)
+			var is_bridge: bool = eid.begins_with("dup_wall") or eid.contains("bridge")
+			if is_bridge:
+				# ── QUANTUM HARD-LIGHT BRIDGE ───────────────────────────
+				# 1. Outer ambient energy glow
+				var glow: ColorRect = ColorRect.new()
+				glow.name = "Glow"
+				glow.color = Color(0.0, 0.9, 1.0, 0.25)
+				glow.size = Vector2(ew, eh + 8)
+				glow.position = Vector2(0, -4)
+				node.add_child(glow)
+
+				# 2. Translucent energy body
+				var body: ColorRect = ColorRect.new()
+				body.name = "Body"
+				body.color = Color(0.04, 0.22, 0.38, 0.9)
+				body.size = Vector2(ew, eh)
+				node.add_child(body)
+
+				# 3. Solid glowing walking deck surface on top
+				var deck: ColorRect = ColorRect.new()
+				deck.name = "Deck"
+				deck.color = Color(0.35, 1.0, 0.85, 0.98)
+				deck.size = Vector2(ew, 5)
+				deck.position = Vector2(0, 0)
+				node.add_child(deck)
+
+				# 4. Energy support struts across the bridge span
+				var strut_count: int = int(ew / 40.0)
+				for i in range(1, strut_count):
+					var strut: ColorRect = ColorRect.new()
+					strut.color = Color(0.0, 0.85, 1.0, 0.55)
+					strut.size = Vector2(2, eh - 5)
+					strut.position = Vector2(i * 40.0, 5)
+					node.add_child(strut)
+
+				# 5. Glowing cybernetic label
+				var lbl: Label = Label.new()
+				lbl.text = "⚡ QUANTUM BRIDGE [ACTIVE] ⚡"
+				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				lbl.size = Vector2(ew, eh)
+				lbl.add_theme_font_size_override("font_size", 12)
+				lbl.add_theme_color_override("font_color", Color(0.85, 1.0, 1.0))
+				node.add_child(lbl)
+
+				# 6. Subtle pulse animation
+				var tween: Tween = node.create_tween().set_loops()
+				tween.tween_property(glow, "color:a", 0.45, 0.8)
+				tween.tween_property(glow, "color:a", 0.15, 0.8)
 			else:
-				var rect: ColorRect = ColorRect.new()
-				rect.color = Color(0.35, 0.4, 0.48)
-				rect.size = Vector2(ew, eh)
-				node.add_child(rect)
+				var tex: Texture2D = _try_load_texture(["res://assets/sprites/wall.png", "res://assets/sprites/block.png"])
+				if tex:
+					var sp: Sprite2D = Sprite2D.new()
+					sp.texture = tex
+					sp.position = Vector2(ew * 0.5, eh * 0.5)
+					node.add_child(sp)
+				else:
+					var rect: ColorRect = ColorRect.new()
+					rect.color = Color(0.35, 0.4, 0.48)
+					rect.size = Vector2(ew, eh)
+					node.add_child(rect)
 			
 		"monster":
 			var tex: Texture2D = _try_load_texture(["res://assets/sprites/monster.png", "res://assets/sprites/alien.png"])
@@ -692,17 +771,33 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 				node.add_child(lbl)
 			
 		"editBlock":
+			var is_dup_skill: bool = (str(ent.get("skill", "")) == "duplicate")
 			var rect: ColorRect = ColorRect.new()
-			rect.color = Color(0.0, 0.9, 1.0, 0.5)
+			rect.name = "Background"
+			rect.color = Color(0.08, 0.28, 0.42, 0.8) if is_dup_skill else Color(0.0, 0.9, 1.0, 0.5)
 			rect.size = Vector2(ew, eh)
 			node.add_child(rect)
+
+			var border_top: ColorRect = ColorRect.new()
+			border_top.name = "BorderTop"
+			border_top.color = Color(0.2, 0.9, 1.0, 0.9)
+			border_top.size = Vector2(ew, 4)
+			node.add_child(border_top)
 			
 			var lbl: Label = Label.new()
+			lbl.name = "Label"
 			var skill: String = str(ent.get("skill", "")).to_upper()
-			lbl.text = "[%s]" % skill
+			if is_dup_skill:
+				lbl.text = "PRESS [2] TO DUPLICATE BRIDGE INTO REALITY [A]"
+			else:
+				lbl.text = "[%s]" % skill
 			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			lbl.size = Vector2(ew, eh)
+			lbl.add_theme_font_size_override("font_size", 11)
+			lbl.add_theme_color_override("font_color", Color(0.95, 1.0, 1.0))
 			node.add_child(lbl)
+
 			
 		"exit":
 			var tex: Texture2D = _try_load_texture(["res://assets/sprites/exit.png", "res://assets/sprites/warp.png"])
