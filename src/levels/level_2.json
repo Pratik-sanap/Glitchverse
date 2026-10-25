@@ -23,13 +23,13 @@
 
     { "id": "wall_a1",       "type": "wall",       "world": "A", "x": 1700, "y": 480, "w": 64,  "h": 200, "twinId": "edit_wall_b1" },
 
-    { "id": "cell_a1",       "type": "energyCell", "world": "A", "x": 430,  "y": 636 },
-    { "id": "cell_a2",       "type": "energyCell", "world": "A", "x": 800,  "y": 540 },
-    { "id": "cell_a3",       "type": "energyCell", "world": "A", "x": 1700, "y": 640 },
+    { "id": "cell_a1",       "type": "energyCell", "world": "A", "x": 430,  "y": 626, "w": 30,  "h": 44 },
+    { "id": "cell_a2",       "type": "energyCell", "world": "A", "x": 800,  "y": 526, "w": 30,  "h": 44 },
+    { "id": "cell_a3",       "type": "energyCell", "world": "A", "x": 1700, "y": 626, "w": 30,  "h": 44 },
 
-    { "id": "part_a1",       "type": "shipPart",   "world": "A", "x": 2400, "y": 520 },
+    { "id": "part_a1",       "type": "shipPart",   "world": "A", "x": 2320, "y": 504, "w": 96,  "h": 56 },
 
-    { "id": "exit_a1",       "type": "exit",       "world": "A", "x": 2650, "y": 500, "w": 64,  "h": 60 },
+    { "id": "exit_a1",       "type": "exit",       "world": "A", "x": 2480, "y": 448, "w": 280, "h": 112 },
 
     { "id": "edit_bridge_b1","type": "editBlock",  "world": "B", "x": 500,  "y": 680, "w": 300, "h": 40, "skill": "duplicate", "twinId": "pit_a1" },
     { "id": "edit_wall_b1",  "type": "editBlock",  "world": "B", "x": 1700, "y": 480, "w": 64,  "h": 200, "skill": "delete",   "twinId": "wall_a1" },
@@ -39,8 +39,8 @@
   ],
 
   "portals": [
-    { "x": 150,  "y": 590, "w": 48, "h": 90 },
-    { "x": 1430, "y": 590, "w": 48, "h": 90 }
+    { "x": 120,  "y": 520, "w": 120, "h": 160 },
+    { "x": 1420, "y": 520, "w": 120, "h": 160 }
   ],
 
   "parts": 1,

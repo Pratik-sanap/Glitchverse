@@ -14,17 +14,17 @@
   ],
 
   "entities": [
-    { "id": "spike_a1",      "type": "spike",      "world": "A", "x": 1100, "y": 648, "w": 360, "h": 32, "twinId": "edit_spike_b1" },
+    { "id": "spike_a1",      "type": "spike",      "world": "A", "x": 1100, "y": 616, "w": 360, "h": 64, "twinId": "edit_spike_b1" },
     { "id": "pit_a1",        "type": "pit",        "world": "A", "x": 600,  "y": 700, "w": 400, "h": 60, "twinId": "edit_bridge_b1" },
 
-    { "id": "cell_a1",       "type": "energyCell", "world": "A", "x": 520,  "y": 636 },
-    { "id": "cell_a2",       "type": "energyCell", "world": "A", "x": 1800, "y": 540 },
+    { "id": "cell_a1",       "type": "energyCell", "world": "A", "x": 520,  "y": 626, "w": 30,  "h": 44 },
+    { "id": "cell_a2",       "type": "energyCell", "world": "A", "x": 1800, "y": 526, "w": 30,  "h": 44 },
 
-    { "id": "part_a1",       "type": "shipPart",   "world": "A", "x": 2000, "y": 540 },
+    { "id": "part_a1",       "type": "shipPart",   "world": "A", "x": 1940, "y": 524, "w": 96,  "h": 56 },
 
-    { "id": "exit_a1",       "type": "exit",       "world": "A", "x": 2250, "y": 520, "w": 64,  "h": 60 },
+    { "id": "exit_a1",       "type": "exit",       "world": "A", "x": 2080, "y": 468, "w": 280, "h": 112 },
 
-    { "id": "edit_spike_b1", "type": "editBlock",  "world": "B", "x": 1100, "y": 648, "w": 360, "h": 32, "skill": "delete",    "twinId": "spike_a1" },
+    { "id": "edit_spike_b1", "type": "editBlock",  "world": "B", "x": 1100, "y": 616, "w": 360, "h": 64, "skill": "delete",    "twinId": "spike_a1" },
     { "id": "edit_bridge_b1","type": "editBlock",  "world": "B", "x": 600,  "y": 680, "w": 400, "h": 40, "skill": "duplicate", "twinId": "pit_a1" },
 
     { "id": "crate_b1",      "type": "crate",      "world": "B", "x": 330,  "y": 624, "w": 56,  "h": 56 },
@@ -32,8 +32,8 @@
   ],
 
   "portals": [
-    { "x": 220,  "y": 590, "w": 48, "h": 90 },
-    { "x": 1030, "y": 590, "w": 48, "h": 90 }
+    { "x": 200,  "y": 520, "w": 120, "h": 160 },
+    { "x": 1010, "y": 520, "w": 120, "h": 160 }
   ],
 
   "parts": 1,
