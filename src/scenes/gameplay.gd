@@ -32,6 +32,8 @@ const PLAYER_WALK_FPS: float = 10.0
 
 # Entity ID -> Node2D lookup for fast positional updates
 var _entity_nodes: Dictionary = {}
+var _portal_sprites: Array[Sprite2D] = []
+var _exit_nodes: Array[Node2D] = []
 
 # Audio
 var _audio_mgr: Node
@@ -232,6 +234,24 @@ func _on_state_changed() -> void:
 			# Visibility based on deleted/collected status
 			var is_inactive: bool = ent_dict.get("collected", false) or ent_dict.get("deleted", false)
 			node.visible = (not is_inactive) and (ent_dict.get("world", "A") == _current_world)
+
+			# Monster horizontal flip based on patrol direction
+			if ent_dict.get("type", "") == "monster":
+				var m_vis: Node2D = node.get_node_or_null("MonsterVisual")
+				if m_vis:
+					var cur_x: float = float(ent_dict.get("x", node.position.x))
+					var last_x: float = float(node.get_meta("last_x", cur_x))
+					var dx: float = cur_x - last_x
+					var cur_facing: float = float(node.get_meta("facing", 1.0))
+					if dx > 0.05 or float(ent_dict.get("vx", 0.0)) > 0.05:
+						cur_facing = 1.0
+					elif dx < -0.05 or float(ent_dict.get("vx", 0.0)) < -0.05:
+						cur_facing = -1.0
+					elif ent_dict.has("facing"):
+						cur_facing = float(ent_dict["facing"])
+					node.set_meta("facing", cur_facing)
+					node.set_meta("last_x", cur_x)
+					m_vis.scale.x = cur_facing
 			
 			# Dynamic visual updates (e.g. editBlock becoming duplicated)
 			if ent_dict.get("type", "") == "editBlock" and ent_dict.get("duplicated", false):
@@ -245,6 +265,15 @@ func _on_state_changed() -> void:
 				if elbl:
 					elbl.text = "✓ BRIDGE DUPLICATED — ACTIVE IN REALITY [A]"
 					elbl.add_theme_color_override("font_color", Color(0.5, 1.0, 0.75))
+	
+	# 4. Update exit readiness visual (dimmed 0.5 alpha until all parts collected)
+	var parts_info: Dictionary = state.get("parts", {})
+	var total_parts: int = int(parts_info.get("total", _level_data.get("parts", 1)))
+	var collected_parts: int = int(parts_info.get("collected", 0))
+	var has_all_parts: bool = (collected_parts >= total_parts and total_parts > 0)
+	for enode in _exit_nodes:
+		if is_instance_valid(enode):
+			enode.modulate.a = 1.0 if has_all_parts else 0.5
 
 
 func _apply_world_appearance() -> void:
@@ -256,6 +285,11 @@ func _apply_world_appearance() -> void:
 		_bg_rect_a.visible = (_current_world == "A")
 	if _bg_rect_b:
 		_bg_rect_b.visible = (_current_world == "B")
+
+	# In Dimension B tint portal cyan (modulate)
+	for psp in _portal_sprites:
+		if is_instance_valid(psp):
+			psp.modulate = Color(0.2, 0.9, 1.0, 1.0) if _current_world == "B" else Color(1.0, 1.0, 1.0, 1.0)
 
 
 # ── LEVEL LOADING & GENERATION ──────────────────────────────
@@ -445,10 +479,12 @@ func _populate_level_geometry() -> void:
 			_platforms_container.add_child(plat_rect)
 	
 	# 2. Portals
+	_portal_sprites.clear()
+	_exit_nodes.clear()
 	var portal_tex: Texture2D = _try_load_texture([
+		"res://assets/art/world/portal.png",
+		"res://assets/art/world/rift.png",
 		"res://assets/sprites/rift.png",
-		"res://assets/sprites/rift.jpeg",
-		"res://assets/sprites/rift.jpg",
 		"res://assets/sprites/portal.png",
 		"res://assets/sprites/dimensional_rift.png"
 	])
@@ -459,21 +495,43 @@ func _populate_level_geometry() -> void:
 		var port: Dictionary = p
 		var px: float = float(port.get("x", 0))
 		var py: float = float(port.get("y", 0))
-		var pw: float = float(port.get("w", 80))
-		var ph: float = float(port.get("h", 100))
+		var pw: float = float(port.get("w", 120))
+		var ph: float = float(port.get("h", 160))
 		
 		var portal_node: Node2D = Node2D.new()
 		portal_node.position = Vector2(px, py)
 		
 		if portal_tex:
+			var glow: ColorRect = ColorRect.new()
+			glow.color = Color(0.65, 0.2, 0.95, 0.25)
+			glow.size = Vector2(pw + 16, ph + 16)
+			glow.position = Vector2(-8, -8)
+			portal_node.add_child(glow)
+
 			var sp: Sprite2D = Sprite2D.new()
 			sp.texture = portal_tex
+			sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 			var tsize: Vector2 = portal_tex.get_size()
-			if tsize.x > 0 and tsize.y > 0 and (tsize.x > pw or tsize.y > ph):
-				var s: float = minf(float(pw) / tsize.x, float(ph) / tsize.y)
-				sp.scale = Vector2(s, s)
-			sp.position = Vector2(pw * 0.5, ph * 0.5)
+			var s0: Vector2 = Vector2(160.0 / tsize.x, 160.0 / tsize.y) if (tsize.x > 0 and tsize.y > 0) else Vector2(0.5, 0.5)
+			sp.scale = s0
+			# Centered horizontally on the zone (pw * 0.5), bottom-aligned to the zone's bottom edge (ph - 80.0)
+			sp.position = Vector2(pw * 0.5, ph - 80.0)
 			portal_node.add_child(sp)
+			_portal_sprites.append(sp)
+
+			# Pulse scale between 1.0 and 1.05 over 1.5 seconds with a Tween
+			var start_pulse: Callable = func() -> void:
+				if not is_instance_valid(sp) or not sp.is_inside_tree():
+					return
+				var tween: Tween = sp.create_tween()
+				tween.set_loops()
+				tween.tween_property(sp, "scale", s0 * 1.05, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				tween.tween_property(sp, "scale", s0, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+			if sp.is_inside_tree():
+				start_pulse.call()
+			else:
+				sp.tree_entered.connect(start_pulse)
 		else:
 			var portal_bg: ColorRect = ColorRect.new()
 			portal_bg.color = Color(0.6, 0.2, 0.9, 0.35) # Glowing dimensional rift
@@ -481,10 +539,12 @@ func _populate_level_geometry() -> void:
 			portal_node.add_child(portal_bg)
 			
 			var portal_label: Label = Label.new()
-			portal_label.text = "RIFT\n[F]"
+			portal_label.text = "DIMENSIONAL\nRIFT\n[F]"
 			portal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			portal_label.position = Vector2(0, ph * 0.3)
-			portal_label.size = Vector2(pw, 40)
+			portal_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			portal_label.position = Vector2(0, 0)
+			portal_label.size = Vector2(pw, ph)
+			portal_label.add_theme_font_size_override("font_size", 14)
 			portal_node.add_child(portal_label)
 		
 		_portals_container.add_child(portal_node)
@@ -603,12 +663,42 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 	
 	match etype:
 		"spike":
-			var tex: Texture2D = _try_load_texture(["res://assets/sprites/spike.png", "res://assets/sprites/spikes.png"])
+			# Faint red glow underneath so the hazard reads clearly against the blue Dimension B tint
+			var glow: ColorRect = ColorRect.new()
+			glow.color = Color(1.0, 0.15, 0.15, 0.3)
+			glow.size = Vector2(ew, eh + 4)
+			glow.position = Vector2(0, -2)
+			node.add_child(glow)
+
+			var tex: Texture2D = _try_load_texture([
+				"res://assets/art/world/spike_tile.png",
+				"res://assets/art/world/spike.png",
+				"res://assets/sprites/spike.png",
+				"res://assets/sprites/spikes.png"
+			])
 			if tex:
-				var sp: Sprite2D = Sprite2D.new()
-				sp.texture = tex
-				sp.position = Vector2(ew * 0.5, eh * 0.5)
-				node.add_child(sp)
+				var tsize: Vector2 = tex.get_size()
+				var tile_w: float = 165.0
+				var tile_h: float = 64.0
+				var scale_x: float = tile_w / tsize.x if tsize.x > 0 else 0.5
+				var scale_y: float = tile_h / tsize.y if tsize.y > 0 else 0.5
+
+				# Container with clip_contents = true clips any excess width of the last tile at the right edge
+				var clip_container: Control = Control.new()
+				clip_container.clip_contents = true
+				clip_container.size = Vector2(ew, eh)
+				clip_container.position = Vector2(0, 0)
+				node.add_child(clip_container)
+
+				var count: int = maxi(1, int(ceil(ew / tile_w)))
+				for i in range(count):
+					var sp: Sprite2D = Sprite2D.new()
+					sp.texture = tex
+					sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+					sp.scale = Vector2(scale_x, scale_y)
+					# Bottom-aligned to entity bottom edge (eh)
+					sp.position = Vector2(i * tile_w + tile_w * 0.5, eh - tile_h * 0.5)
+					clip_container.add_child(sp)
 			else:
 				var rect: ColorRect = ColorRect.new()
 				rect.color = Color(0.9, 0.2, 0.2, 0.9)
@@ -618,7 +708,9 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 				var lbl: Label = Label.new()
 				lbl.text = "▲▲▲"
 				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 				lbl.size = Vector2(ew, eh)
+				lbl.add_theme_font_size_override("font_size", 22)
 				node.add_child(lbl)
 			
 		"pit":
@@ -692,40 +784,115 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 					node.add_child(rect)
 			
 		"monster":
+			# Procedural dark purple blob placeholder (130x130 box, no copyrighted art)
+			var visual: Node2D = Node2D.new()
+			visual.name = "MonsterVisual"
+			var center_x: float = ew * 0.5
+			var center_y: float = eh * 0.5
+			visual.position = Vector2(center_x, center_y)
+
+			# 1. Outer ambient dark purple glow
+			var outer_glow: Polygon2D = Polygon2D.new()
+			outer_glow.color = Color(0.45, 0.1, 0.65, 0.25)
+			var glow_pts: Array[Vector2] = []
+			for i in range(16):
+				var angle: float = i * (PI * 2.0 / 16.0)
+				var r: float = 64.0 + 4.0 * sin(angle * 3.0)
+				glow_pts.append(Vector2(cos(angle) * r, sin(angle) * (r * 0.92)))
+			outer_glow.polygon = PackedVector2Array(glow_pts)
+			visual.add_child(outer_glow)
+
+			# 2. Main dark purple blob body (smooth organic shape)
+			var body: Polygon2D = Polygon2D.new()
+			body.name = "Body"
+			body.color = Color(0.28, 0.08, 0.44, 0.96) # Dark purple
+			var body_pts: Array[Vector2] = []
+			for i in range(24):
+				var angle: float = i * (PI * 2.0 / 24.0)
+				var r: float = 56.0 + 5.0 * sin(angle * 4.0) + (8.0 if sin(angle) > 0.0 else -3.0)
+				body_pts.append(Vector2(cos(angle) * r, sin(angle) * (r * 0.9)))
+			body.polygon = PackedVector2Array(body_pts)
+			visual.add_child(body)
+
+			# 3. Inner body layer for depth
+			var inner_body: Polygon2D = Polygon2D.new()
+			inner_body.color = Color(0.38, 0.12, 0.56, 0.85)
+			var inner_pts: Array[Vector2] = []
+			for pt in body_pts:
+				inner_pts.append(pt * 0.8)
+			inner_body.polygon = PackedVector2Array(inner_pts)
+			visual.add_child(inner_body)
+
+			# 4. Two glowing red eyes
+			var eye_glow_l: ColorRect = ColorRect.new()
+			eye_glow_l.color = Color(1.0, 0.05, 0.1, 0.35)
+			eye_glow_l.size = Vector2(26, 26)
+			eye_glow_l.position = Vector2(-35, -18)
+			visual.add_child(eye_glow_l)
+
+			var eye_glow_r: ColorRect = ColorRect.new()
+			eye_glow_r.color = Color(1.0, 0.05, 0.1, 0.35)
+			eye_glow_r.size = Vector2(26, 26)
+			eye_glow_r.position = Vector2(9, -18)
+			visual.add_child(eye_glow_r)
+
+			var eye_l: ColorRect = ColorRect.new()
+			eye_l.color = Color(0.95, 0.1, 0.15, 1.0) # Glowing red
+			eye_l.size = Vector2(18, 18)
+			eye_l.position = Vector2(-31, -14)
+			visual.add_child(eye_l)
+
+			var eye_r: ColorRect = ColorRect.new()
+			eye_r.color = Color(0.95, 0.1, 0.15, 1.0) # Glowing red
+			eye_r.size = Vector2(18, 18)
+			eye_r.position = Vector2(13, -14)
+			visual.add_child(eye_r)
+
+			var pupil_l: ColorRect = ColorRect.new()
+			pupil_l.color = Color(1.0, 0.88, 0.9, 1.0)
+			pupil_l.size = Vector2(6, 6)
+			pupil_l.position = Vector2(-25, -12)
+			visual.add_child(pupil_l)
+
+			var pupil_r: ColorRect = ColorRect.new()
+			pupil_r.color = Color(1.0, 0.88, 0.9, 1.0)
+			pupil_r.size = Vector2(6, 6)
+			pupil_r.position = Vector2(19, -12)
+			visual.add_child(pupil_r)
+
+			node.add_child(visual)
+			node.set_meta("last_x", float(ent.get("x", 0)))
+			node.set_meta("facing", 1.0)
+
+			# Slight bob with a Tween
+			var start_bob: Callable = func() -> void:
+				if not is_instance_valid(visual) or not visual.is_inside_tree():
+					return
+				var tween: Tween = visual.create_tween()
+				tween.set_loops()
+				tween.tween_property(visual, "position:y", center_y - 6.0, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+				tween.tween_property(visual, "position:y", center_y, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+			if visual.is_inside_tree():
+				start_bob.call()
+			else:
+				visual.tree_entered.connect(start_bob)
+			
+		"crate":
 			var tex: Texture2D = _try_load_texture([
-				"res://assets/sprites/monster.png",
-				"res://assets/sprites/monster.jpg",
-				"res://assets/sprites/monster.jpeg",
-				"res://assets/sprites/Firefly.png",
-				"res://assets/sprites/firefly.png",
-				"res://assets/sprites/alien.png"
+				"res://assets/art/world/crate.png",
+				"res://assets/sprites/crate.png",
+				"res://assets/sprites/box.png"
 			])
 			if tex:
 				var sp: Sprite2D = Sprite2D.new()
 				sp.texture = tex
+				sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 				var tsize: Vector2 = tex.get_size()
-				if tsize.x > 0 and tsize.y > 0 and (tsize.x > ew or tsize.y > eh):
-					var s: float = minf(float(ew) / tsize.x, float(eh) / tsize.y)
-					sp.scale = Vector2(s, s)
-				sp.position = Vector2(ew * 0.5, eh * 0.5)
-				node.add_child(sp)
-			else:
-				var rect: ColorRect = ColorRect.new()
-				rect.color = Color(0.9, 0.4, 0.1)
-				rect.size = Vector2(ew, eh)
-				node.add_child(rect)
-				
-				var lbl: Label = Label.new()
-				lbl.text = "👾"
-				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				lbl.size = Vector2(ew, eh)
-				node.add_child(lbl)
-			
-		"crate":
-			var tex: Texture2D = _try_load_texture(["res://assets/sprites/crate.png", "res://assets/sprites/box.png"])
-			if tex:
-				var sp: Sprite2D = Sprite2D.new()
-				sp.texture = tex
+				if tsize.x > 0 and tsize.y > 0:
+					sp.scale = Vector2(ew / tsize.x, eh / tsize.y)
+				else:
+					sp.scale = Vector2(0.5, 0.5)
 				sp.position = Vector2(ew * 0.5, eh * 0.5)
 				node.add_child(sp)
 			else:
@@ -737,6 +904,7 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 				var lbl: Label = Label.new()
 				lbl.text = "CRATE"
 				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 				lbl.size = Vector2(ew, eh)
 				node.add_child(lbl)
 			
@@ -745,6 +913,10 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			if tex:
 				var sp: Sprite2D = Sprite2D.new()
 				sp.texture = tex
+				var tsize: Vector2 = tex.get_size()
+				if tsize.x > 0 and tsize.y > 0:
+					var s: float = minf(float(ew) / tsize.x, float(eh) / tsize.y)
+					sp.scale = Vector2(s, s)
 				sp.position = Vector2(ew * 0.5, eh * 0.5)
 				node.add_child(sp)
 			else:
@@ -755,6 +927,8 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			
 		"energyCell":
 			var tex: Texture2D = _try_load_texture([
+				"res://assets/art/world/energy_cell.png",
+				"res://assets/art/world/oxygen.png",
 				"res://assets/sprites/oxygen_cylinder.png",
 				"res://assets/sprites/oxygen.png",
 				"res://assets/sprites/cylinder.png",
@@ -764,12 +938,32 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			if tex:
 				var sp: Sprite2D = Sprite2D.new()
 				sp.texture = tex
+				sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 				var tsize: Vector2 = tex.get_size()
-				if tsize.x > 0 and tsize.y > 0 and (tsize.x > 32 or tsize.y > 32):
-					var s: float = minf(28.0 / tsize.x, 28.0 / tsize.y)
-					sp.scale = Vector2(s, s)
-				sp.position = Vector2(12, 12)
+				if tsize.x > 0 and tsize.y > 0:
+					sp.scale = Vector2(30.0 / tsize.x, 44.0 / tsize.y)
+				else:
+					sp.scale = Vector2(0.5, 0.5)
+				
+				# Position at 30x44 with bottom edge on entity's bottom edge (eh)
+				var base_x: float = ew * 0.5
+				var base_y: float = eh - 22.0
+				sp.position = Vector2(base_x, base_y)
 				node.add_child(sp)
+
+				# Gentle 6 px up/down bob with a Tween
+				var start_bob: Callable = func() -> void:
+					if not is_instance_valid(sp) or not sp.is_inside_tree():
+						return
+					var tween: Tween = sp.create_tween()
+					tween.set_loops()
+					tween.tween_property(sp, "position:y", base_y - 6.0, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+					tween.tween_property(sp, "position:y", base_y, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+				if sp.is_inside_tree():
+					start_bob.call()
+				else:
+					sp.tree_entered.connect(start_bob)
 			else:
 				var glow: ColorRect = ColorRect.new()
 				glow.color = Color(0.0, 1.0, 0.5, 0.35)
@@ -792,30 +986,60 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 				node.add_child(lbl)
 			
 		"shipPart":
-			var tex: Texture2D = _try_load_texture(["res://assets/sprites/ship_part.png", "res://assets/sprites/part.png"])
+			var tex: Texture2D = _try_load_texture([
+				"res://assets/art/world/ship_part.png",
+				"res://assets/art/world/parts.png",
+				"res://assets/sprites/parts.png",
+				"res://assets/sprites/ship_part.png",
+				"res://assets/sprites/part.png"
+			])
 			if tex:
 				var sp: Sprite2D = Sprite2D.new()
 				sp.texture = tex
-				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+				var tsize: Vector2 = tex.get_size()
+				if tsize.x > 0 and tsize.y > 0:
+					sp.scale = Vector2(96.0 / tsize.x, 56.0 / tsize.y)
+				else:
+					sp.scale = Vector2(0.5, 0.5)
+				
+				# Bottom-aligned to entity's bottom edge (eh), centered on entity's x center (ew * 0.5)
+				var base_x: float = ew * 0.5
+				var base_y: float = eh - 28.0
+				sp.position = Vector2(base_x, base_y)
 				node.add_child(sp)
+
+				# Slow glow pulse (modulate between white and light cyan)
+				var start_pulse: Callable = func() -> void:
+					if not is_instance_valid(sp) or not sp.is_inside_tree():
+						return
+					var tween: Tween = sp.create_tween()
+					tween.set_loops()
+					tween.tween_property(sp, "modulate", Color(0.65, 0.95, 1.0, 1.0), 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+					tween.tween_property(sp, "modulate", Color(1.0, 1.0, 1.0, 1.0), 1.2).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+				if sp.is_inside_tree():
+					start_pulse.call()
+				else:
+					sp.tree_entered.connect(start_pulse)
 			else:
 				var glow: ColorRect = ColorRect.new()
 				glow.color = Color(1.0, 0.8, 0.1, 0.4)
-				glow.size = Vector2(36, 36)
-				glow.position = Vector2(-2, -2)
+				glow.size = Vector2(ew + 12, eh + 12)
+				glow.position = Vector2(-6, -6)
 				node.add_child(glow)
 
 				var rect: ColorRect = ColorRect.new()
 				rect.color = Color(1.0, 0.85, 0.0)
-				rect.size = Vector2(32, 32)
+				rect.size = Vector2(ew, eh)
 				node.add_child(rect)
 				
 				var lbl: Label = Label.new()
 				lbl.text = "⚡PART"
 				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-				lbl.size = Vector2(32, 32)
-				lbl.add_theme_font_size_override("font_size", 9)
+				lbl.size = Vector2(ew, eh)
+				lbl.add_theme_font_size_override("font_size", 14)
 				lbl.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
 				node.add_child(lbl)
 			
@@ -850,25 +1074,42 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 			
 		"exit":
 			var tex: Texture2D = _try_load_texture([
+				"res://assets/art/world/exit_ship.png",
+				"res://assets/art/world/exit.png",
 				"res://assets/sprites/spaceship.png",
 				"res://assets/sprites/ship.png",
 				"res://assets/sprites/exit.png",
 				"res://assets/sprites/warp.png"
 			])
 			if tex:
+				var glow: ColorRect = ColorRect.new()
+				glow.color = Color(0.2, 0.8, 1.0, 0.2)
+				glow.size = Vector2(ew + 16, eh + 16)
+				glow.position = Vector2(-8, -8)
+				node.add_child(glow)
+
 				var sp: Sprite2D = Sprite2D.new()
 				sp.texture = tex
+				sp.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 				var tsize: Vector2 = tex.get_size()
-				if tsize.x > 0 and tsize.y > 0 and (tsize.x > ew or tsize.y > eh):
-					var s: float = minf(float(ew) / tsize.x, float(eh) / tsize.y)
-					sp.scale = Vector2(s, s)
-				sp.position = Vector2(ew * 0.5, eh * 0.5)
+				var s: Vector2 = Vector2(280.0 / tsize.x, 112.0 / tsize.y) if (tsize.x > 0 and tsize.y > 0) else Vector2(0.5, 0.5)
+				sp.scale = s
+				# Bottom-aligned (eh - 56.0) and horizontally centered (ew * 0.5) on entity's box
+				sp.position = Vector2(ew * 0.5, eh - 56.0)
 				node.add_child(sp)
+
+				# Track exit node for state-based dimming/brightness
+				_exit_nodes.append(node)
+				var parts_info: Dictionary = Game.get_state().get("parts", {})
+				var total_parts: int = int(parts_info.get("total", _level_data.get("parts", 1)))
+				var collected_parts: int = int(parts_info.get("collected", 0))
+				var has_all_parts: bool = (collected_parts >= total_parts and total_parts > 0)
+				node.modulate.a = 1.0 if has_all_parts else 0.5
 			else:
 				var glow: ColorRect = ColorRect.new()
 				glow.color = Color(0.7, 0.3, 0.9, 0.4)
-				glow.size = Vector2(ew + 8, eh + 8)
-				glow.position = Vector2(-4, -4)
+				glow.size = Vector2(ew + 12, eh + 12)
+				glow.position = Vector2(-6, -6)
 				node.add_child(glow)
 
 				var rect: ColorRect = ColorRect.new()
@@ -877,10 +1118,12 @@ func _create_entity_visual(ent: Dictionary) -> Node2D:
 				node.add_child(rect)
 				
 				var lbl: Label = Label.new()
-				lbl.text = "EXIT\nWARP"
+				lbl.text = "🚀 SPACESHIP\nEXTRACTION [EXIT]"
 				lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 				lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 				lbl.size = Vector2(ew, eh)
+				lbl.add_theme_font_size_override("font_size", 16)
+				node.add_child(lbl)
 		_:
 			var rect: ColorRect = ColorRect.new()
 			rect.color = Color(0.5, 0.5, 0.5)

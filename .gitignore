@@ -5,6 +5,16 @@
 *.translation
 export_presets.cfg
 
+# Export / Web build artifacts
+*.pck
+*.wasm
+*.audio.worklet.js
+*.audio.position.worklet.js
+Rift Runner.*
+build/
+dist/
+export/
+
 # Mono/C# specific
 .mono/
 data_*/
@@ -18,3 +28,12 @@ desktop.ini
 # Editor temp files
 *.tmp
 *.bak
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/

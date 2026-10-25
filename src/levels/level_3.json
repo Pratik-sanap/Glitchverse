@@ -19,29 +19,29 @@
 
     { "id": "wall_a1",        "type": "wall",       "world": "A", "x": 1350, "y": 480, "w": 64,  "h": 200, "twinId": "edit_wall_b1" },
 
-    { "id": "monster_a1",     "type": "monster",    "world": "A", "x": 2100, "y": 512, "w": 48,  "h": 48,  "twinId": "edit_monster_b1" },
+    { "id": "monster_a1",     "type": "monster",    "world": "A", "x": 2100, "y": 430, "w": 130, "h": 130, "twinId": "edit_monster_b1" },
 
-    { "id": "cell_a1",        "type": "energyCell", "world": "A", "x": 1180, "y": 656, "w": 24,  "h": 24 },
-    { "id": "cell_a2",        "type": "energyCell", "world": "A", "x": 1500, "y": 656, "w": 24,  "h": 24 },
-    { "id": "cell_a3",        "type": "energyCell", "world": "A", "x": 2350, "y": 536, "w": 24,  "h": 24 },
+    { "id": "cell_a1",        "type": "energyCell", "world": "A", "x": 1180, "y": 626, "w": 30,  "h": 44 },
+    { "id": "cell_a2",        "type": "energyCell", "world": "A", "x": 1500, "y": 626, "w": 30,  "h": 44 },
+    { "id": "cell_a3",        "type": "energyCell", "world": "A", "x": 2350, "y": 506, "w": 30,  "h": 44 },
 
-    { "id": "part_a1",        "type": "shipPart",   "world": "A", "x": 1260, "y": 648, "w": 32,  "h": 32 },
-    { "id": "part_a2",        "type": "shipPart",   "world": "A", "x": 2650, "y": 528, "w": 32,  "h": 32 },
+    { "id": "part_a1",        "type": "shipPart",   "world": "A", "x": 1230, "y": 624, "w": 96,  "h": 56 },
+    { "id": "part_a2",        "type": "shipPart",   "world": "A", "x": 2650, "y": 504, "w": 96,  "h": 56 },
 
-    { "id": "exit_a1",        "type": "exit",       "world": "A", "x": 2950, "y": 500, "w": 64,  "h": 60 },
+    { "id": "exit_a1",        "type": "exit",       "world": "A", "x": 2800, "y": 448, "w": 280, "h": 112 },
 
     { "id": "edit_bridge_b1", "type": "editBlock",  "world": "B", "x": 600,  "y": 680, "w": 420, "h": 40,  "skill": "duplicate", "twinId": "pit_a1" },
     { "id": "edit_wall_b1",   "type": "editBlock",  "world": "B", "x": 1350, "y": 480, "w": 64,  "h": 200, "skill": "move",      "twinId": "wall_a1" },
-    { "id": "edit_monster_b1","type": "editBlock",  "world": "B", "x": 2100, "y": 512, "w": 48,  "h": 48,  "skill": "delete",    "twinId": "monster_a1" },
+    { "id": "edit_monster_b1","type": "editBlock",  "world": "B", "x": 2100, "y": 430, "w": 130, "h": 130, "skill": "delete",    "twinId": "monster_a1" },
 
     { "id": "crate_b1",       "type": "crate",      "world": "B", "x": 330,  "y": 624, "w": 56,  "h": 56 },
     { "id": "plate_b1",       "type": "plate",      "world": "B", "x": 440,  "y": 664, "w": 64,  "h": 16 }
   ],
 
   "portals": [
-    { "x": 150,  "y": 590, "w": 48, "h": 90 },
-    { "x": 1080, "y": 590, "w": 48, "h": 90 },
-    { "x": 1780, "y": 470, "w": 48, "h": 90 }
+    { "x": 120,  "y": 520, "w": 120, "h": 160 },
+    { "x": 1050, "y": 520, "w": 120, "h": 160 },
+    { "x": 1760, "y": 400, "w": 120, "h": 160 }
   ],
 
   "parts": 2,
