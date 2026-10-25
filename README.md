@@ -77,6 +77,3 @@ Glitchverse/
     └── level_budgets.md
 ```
 
-## Commit cadence
-
-One meaningful commit every ≤ 2 hours.
