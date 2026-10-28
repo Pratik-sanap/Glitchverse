@@ -21,6 +21,7 @@ var _player_velocity_x: float = 0.0
 var _player_on_ground: bool = false
 var _player_animation_time: float = 0.0
 var _camera: Camera2D
+var _shield_visual: Node2D
 var _bg_rect_a: TextureRect
 var _bg_rect_b: TextureRect
 
@@ -62,6 +63,12 @@ func _ready() -> void:
 			hud_node.pause_requested.connect(_on_pause_requested)
 		add_child(hud_node)
 
+	# Attach Touch Controls overlay (for mobile & touch devices)
+	var touch_scene: PackedScene = load("res://src/ui/touch_controls.tscn")
+	if touch_scene:
+		var touch_node: Node = touch_scene.instantiate()
+		add_child(touch_node)
+
 	# Attach Audio Manager
 	var audio_script: GDScript = load("res://src/scenes/audio_manager.gd")
 	if audio_script:
@@ -87,6 +94,14 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_update_player_animation(delta)
 	_feed_input_to_game()
+
+	# Visual flash during invulnerability frames (after shield pop or respawn)
+	var state: Dictionary = Game.get_state()
+	var inv_timer: float = float(state.get("invulnerable_timer", 0.0))
+	if inv_timer > 0.0 and _player_visual:
+		_player_visual.modulate.a = 0.35 if int(Time.get_ticks_msec() / 100) % 2 == 0 else 1.0
+	elif _player_visual:
+		_player_visual.modulate.a = 1.0
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -200,6 +215,10 @@ func _on_state_changed() -> void:
 		var facing: float = p.get("facing", 1.0)
 		if facing != 0.0:
 			_player_visual.scale.x = 1.0 if facing > 0.0 else -1.0
+
+	# Update shield visual visibility
+	if _shield_visual:
+		_shield_visual.visible = bool(state.get("shielded", false))
 	
 	# 2. Update active dimension
 	if state.has("world"):
@@ -422,6 +441,15 @@ func _build_scene_hierarchy() -> void:
 	
 	_player_visual = _create_player_visual()
 	_player_node.add_child(_player_visual)
+
+	# Shield Aura Visual
+	var shield_script: GDScript = load("res://src/scenes/shield_effect.gd")
+	if shield_script:
+		_shield_visual = shield_script.new()
+		_shield_visual.name = "ShieldVisual"
+		_shield_visual.position = Vector2(0, -24)
+		_shield_visual.visible = false
+		_player_node.add_child(_shield_visual)
 	
 	# Camera2D
 	_camera = Camera2D.new()

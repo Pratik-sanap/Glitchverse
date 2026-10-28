@@ -99,7 +99,7 @@ func _build_ui() -> void:
 	add_child(center_root)
 
 	var panel: PanelContainer = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(560, 440)
+	panel.custom_minimum_size = Vector2(560, 480)
 	center_root.add_child(panel)
 
 	var panel_style: StyleBoxFlat = StyleBoxFlat.new()
@@ -192,6 +192,52 @@ func _build_ui() -> void:
 
 	var sep3: HSeparator = HSeparator.new()
 	box.add_child(sep3)
+
+	# Mobile & Display Settings (Touch Controls / Fullscreen)
+	var opt_box: HBoxContainer = HBoxContainer.new()
+	opt_box.add_theme_constant_override("separation", 12)
+	box.add_child(opt_box)
+
+	var btn_touch_opt: Button = _create_styled_button(
+		"📱 TOUCH: " + GameProgress.touch_controls_mode.to_upper(),
+		Color(0.08, 0.14, 0.22, 0.9),
+		Color(0.2, 0.6, 0.8, 0.7),
+		Color(0.85, 0.95, 1.0)
+	)
+	btn_touch_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_touch_opt.custom_minimum_size = Vector2(0, 34)
+	btn_touch_opt.pressed.connect(func():
+		_play_click()
+		var touch_node: Node = get_tree().root.find_child("TouchControls", true, false)
+		if touch_node and touch_node.has_method("cycle_mode"):
+			var next_m: String = touch_node.cycle_mode()
+			btn_touch_opt.text = "📱 TOUCH: " + next_m.to_upper()
+		else:
+			var cur: String = GameProgress.touch_controls_mode
+			var next_m: String = "on" if cur == "auto" else ("off" if cur == "on" else "auto")
+			GameProgress.touch_controls_mode = next_m
+			GameProgress.save_progress()
+			btn_touch_opt.text = "📱 TOUCH: " + next_m.to_upper()
+	)
+	opt_box.add_child(btn_touch_opt)
+
+	var btn_fs_opt: Button = _create_styled_button(
+		"⛶ FULLSCREEN",
+		Color(0.08, 0.14, 0.22, 0.9),
+		Color(0.2, 0.6, 0.8, 0.7),
+		Color(0.85, 0.95, 1.0)
+	)
+	btn_fs_opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_fs_opt.custom_minimum_size = Vector2(0, 34)
+	btn_fs_opt.pressed.connect(func():
+		_play_click()
+		var mode = DisplayServer.window_get_mode()
+		if mode == DisplayServer.WINDOW_MODE_FULLSCREEN:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		else:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	)
+	opt_box.add_child(btn_fs_opt)
 
 	# Navigation Buttons (Planet Select / Main Menu)
 	var nav_box: HBoxContainer = HBoxContainer.new()
