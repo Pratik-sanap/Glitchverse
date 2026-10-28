@@ -10,6 +10,7 @@ static var selected_level: int = 1
 static var total_campaign_score: int = 0
 static var level_scores: Dictionary = {1: 0, 2: 0, 3: 0, 4: 0}
 static var intro_shown: bool = false
+static var touch_controls_mode: String = "auto" # "auto", "on", "off"
 
 
 static func unlock_next_level(current_id: int, score: int = 0) -> void:
@@ -35,7 +36,8 @@ static func save_progress() -> void:
 	var data: Dictionary = {
 		"unlocked_level": unlocked_level,
 		"level_scores": level_scores,
-		"total_campaign_score": total_campaign_score
+		"total_campaign_score": total_campaign_score,
+		"touch_controls_mode": touch_controls_mode
 	}
 	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -58,4 +60,5 @@ static func load_progress() -> void:
 		if scores is Dictionary:
 			for k in scores.keys():
 				level_scores[int(k)] = int(scores[k])
+		touch_controls_mode = str(parsed.get("touch_controls_mode", "auto"))
 		_recalc_total_score()

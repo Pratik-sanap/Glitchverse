@@ -64,7 +64,9 @@ func load_level(id: int) -> void:
 		"gravity":   data["gravity"],
 		"objective": data["objective"],
 		"status":    "playing",
-		"time":      0.0
+		"time":      0.0,
+		"shielded":  false,
+		"invulnerable_timer": 0.0
 	}
 
 	# Reset input and timers for a clean start
@@ -148,6 +150,8 @@ func use_skill(skill_name: String, target_id: String = "") -> void:
 
 	# Handle shield skill (affects Nova directly, no target entity needed)
 	if skill_name == "shield":
+		if _state.get("shielded", false):
+			return   # Shield is already active, don't charge EP again
 		_state["points"] = pts - cost
 		_state["shielded"] = true
 		emit_signal("points_changed", _state["points"])
@@ -352,6 +356,11 @@ func _physics_process(delta: float) -> void:
 	# ── Advance level timer ────────────────────────────────
 	_state["time"] = _state.get("time", 0.0) + delta
 
+	# ── Invulnerability timer countdown ───────────────────
+	var inv_timer: float = float(_state.get("invulnerable_timer", 0.0))
+	if inv_timer > 0.0:
+		_state["invulnerable_timer"] = maxf(0.0, inv_timer - delta)
+
 	var p: Dictionary = _state["player"]
 	var level_gravity: float = float(_state.get("gravity", Config.GRAVITY))
 
@@ -525,8 +534,14 @@ func _check_hazards(p: Dictionary) -> void:
 			"w": float(ent.get("w", 32)), "h": float(ent.get("h", 32))
 		}
 		if _rects_overlap(pr, er):
+			# If player is currently invulnerable (e.g. just absorbed a hit or respawned), ignore hazard
+			if float(_state.get("invulnerable_timer", 0.0)) > 0.0:
+				continue
+
 			if _state.get("shielded", false):
 				_state["shielded"] = false
+				# Grant invulnerability frames (1.5s) so the player can safely walk/jump past the hazard/monster
+				_state["invulnerable_timer"] = 1.5
 				emit_signal("state_changed")
 				return
 			_kill_player()
@@ -540,6 +555,9 @@ func _check_hazards(p: Dictionary) -> void:
 func _kill_player() -> void:
 	if _state.get("status", "playing") != "playing":
 		return
+
+	_state["shielded"] = false
+	_state["invulnerable_timer"] = 1.0  # 1.0s grace period upon respawn
 
 	# ── Deduct EP ─────────────────────────────────────────
 	var pts: int = _state.get("points", 0)

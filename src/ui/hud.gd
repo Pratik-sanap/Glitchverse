@@ -124,16 +124,7 @@ func _build_ui() -> void:
 		_lives_container.add_child(heart)
 		_life_icons.append(heart)
 	
-	# 5. Pause / Menu Button
-	var btn_pause: Button = Button.new()
-	btn_pause.text = "⏸ MENU"
-	btn_pause.custom_minimum_size = Vector2(90, 30)
-	btn_pause.focus_mode = Control.FOCUS_NONE
-	btn_pause.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	btn_pause.add_theme_font_size_override("font_size", 12)
-	btn_pause.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
-	btn_pause.add_theme_color_override("font_hover_color", Color(0.1, 1.0, 0.7))
-	
+	# Common Button Styles for Top Bar
 	var pause_btn_style: StyleBoxFlat = StyleBoxFlat.new()
 	pause_btn_style.bg_color = Color(0.12, 0.16, 0.25, 0.95)
 	pause_btn_style.border_width_left = 1
@@ -149,13 +140,56 @@ func _build_ui() -> void:
 	pause_btn_style.content_margin_right = 10
 	pause_btn_style.content_margin_top = 4
 	pause_btn_style.content_margin_bottom = 4
-	btn_pause.add_theme_stylebox_override("normal", pause_btn_style)
-	
+
 	var pause_hover_style: StyleBoxFlat = pause_btn_style.duplicate()
 	pause_hover_style.bg_color = Color(0.18, 0.25, 0.38, 0.95)
 	pause_hover_style.border_color = Color(0.1, 1.0, 0.7, 0.9)
+
+	# 5. Fullscreen Toggle Button (useful for mobile & web)
+	var btn_fs: Button = Button.new()
+	btn_fs.text = "⛶ FULL"
+	btn_fs.custom_minimum_size = Vector2(65, 30)
+	btn_fs.focus_mode = Control.FOCUS_NONE
+	btn_fs.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn_fs.add_theme_font_size_override("font_size", 11)
+	btn_fs.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0))
+	btn_fs.add_theme_color_override("font_hover_color", Color(0.1, 1.0, 0.7))
+	btn_fs.add_theme_stylebox_override("normal", pause_btn_style)
+	btn_fs.add_theme_stylebox_override("hover", pause_hover_style)
+	btn_fs.pressed.connect(_toggle_fullscreen)
+	top_box.add_child(btn_fs)
+
+	# 6. Touch Controls Toggle Button
+	var btn_touch: Button = Button.new()
+	var current_mode: String = GameProgress.touch_controls_mode.to_upper()
+	btn_touch.text = "📱 TOUCH: " + current_mode
+	btn_touch.custom_minimum_size = Vector2(90, 30)
+	btn_touch.focus_mode = Control.FOCUS_NONE
+	btn_touch.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn_touch.add_theme_font_size_override("font_size", 11)
+	btn_touch.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0))
+	btn_touch.add_theme_color_override("font_hover_color", Color(0.0, 0.9, 1.0))
+	btn_touch.add_theme_stylebox_override("normal", pause_btn_style)
+	btn_touch.add_theme_stylebox_override("hover", pause_hover_style)
+	btn_touch.pressed.connect(func():
+		var touch_node: Node = get_tree().root.find_child("TouchControls", true, false)
+		if touch_node and touch_node.has_method("cycle_mode"):
+			var next_m: String = touch_node.cycle_mode()
+			btn_touch.text = "📱 TOUCH: " + next_m.to_upper()
+	)
+	top_box.add_child(btn_touch)
+
+	# 7. Pause / Menu Button
+	var btn_pause: Button = Button.new()
+	btn_pause.text = "⏸ MENU"
+	btn_pause.custom_minimum_size = Vector2(80, 30)
+	btn_pause.focus_mode = Control.FOCUS_NONE
+	btn_pause.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn_pause.add_theme_font_size_override("font_size", 12)
+	btn_pause.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0))
+	btn_pause.add_theme_color_override("font_hover_color", Color(0.1, 1.0, 0.7))
+	btn_pause.add_theme_stylebox_override("normal", pause_btn_style)
 	btn_pause.add_theme_stylebox_override("hover", pause_hover_style)
-	
 	btn_pause.pressed.connect(func(): emit_signal("pause_requested"))
 	top_box.add_child(btn_pause)
 	
@@ -305,6 +339,8 @@ func _create_skill_btn(text: String, accent: Color) -> Button:
 	var btn: Button = Button.new()
 	btn.text = text
 	btn.focus_mode = Control.FOCUS_NONE
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.custom_minimum_size = Vector2(0, 34)
 	btn.add_theme_font_size_override("font_size", 11)
 	btn.add_theme_color_override("font_color", Color.WHITE)
 	btn.add_theme_color_override("font_disabled_color", Color(0.45, 0.48, 0.55, 0.45))
@@ -338,7 +374,14 @@ func _update_skill_buttons(points: int) -> void:
 	_btn_delete.disabled = (world != "B" or points < Config.COST_DELETE)
 	_btn_duplicate.disabled = (world != "B" or points < Config.COST_DUPLICATE)
 	_btn_move.disabled = (world != "B" or points < Config.COST_MOVE)
-	_btn_shield.disabled = (world != "A" or points < Config.COST_SHIELD)
+
+	var is_shielded: bool = bool(state.get("shielded", false))
+	if is_shielded:
+		_btn_shield.text = "[4] ACTIVE"
+		_btn_shield.disabled = true
+	else:
+		_btn_shield.text = "[4] SHLD (10)"
+		_btn_shield.disabled = (world != "A" or points < Config.COST_SHIELD)
 
 
 # ── FLOATING NUMBER ANIMATION ───────────────────────────────
@@ -367,3 +410,12 @@ func _spawn_floating_number(delta: int) -> void:
 	tween.tween_property(label, "position:y", spawn_y - 45.0, 1.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(label, "modulate:a", 0.0, 1.0).set_delay(0.2)
 	tween.chain().tween_callback(label.queue_free)
+
+
+func _toggle_fullscreen() -> void:
+	var mode = DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+	else:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
