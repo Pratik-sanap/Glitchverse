@@ -1,0 +1,10 @@
+exclude:
+  - README.md
+  - assets/
+  - docs/
+  - src/
+  - tools/
+  - gamedesign.pdf
+  - project.godot
+  - icon.svg
+  - icon.svg.import
