@@ -5,15 +5,13 @@
 *.translation
 export_presets.cfg
 
-# Export / Web build artifacts
-*.pck
-*.wasm
-*.audio.worklet.js
-*.audio.position.worklet.js
-Rift Runner.*
+# Export / Web build artifacts (keep non-web exports ignored)
 build/
 dist/
 export/
+
+# Allow web export files for GitHub Pages deployment
+# (Rift Runner.html, .js, .wasm, .pck, .png, .icon.png, etc. are tracked)
 
 # Mono/C# specific
 .mono/
